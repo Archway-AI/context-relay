@@ -156,6 +156,28 @@ local Context Relay artifacts and event counters in the selected store.
 See [docs/limitations.md](docs/limitations.md) before using Context Relay for
 production agent workflows.
 
+## Fixture Evals
+
+Run the deterministic fixture evals:
+
+```bash
+npm run eval
+```
+
+Current committed results:
+
+| Case | Raw bytes | Summary bytes | Targeted retrieval bytes | Reduction after targeted retrieval |
+| --- | ---: | ---: | ---: | ---: |
+| quickstart-log | 1,428 | 963 | 132 | 23.3% |
+| search-style-output | 9,816 | 1,519 | 836 | 76.0% |
+| json-tool-output | 2,455 | 1,025 | 150 | 52.1% |
+| failing-log | 2,632 | 1,341 | 527 | 29.0% |
+
+All four fixture cases pass exact raw retrieval and exit-code preservation. The
+secret fixture is blocked and does not create an artifact. See
+[docs/evals.md](docs/evals.md) and
+[docs/eval-results.json](docs/eval-results.json).
+
 ## Examples And Fixtures
 
 - [examples/noisy-test-log.js](examples/noisy-test-log.js) emits deterministic
@@ -170,6 +192,7 @@ production agent workflows.
 ```bash
 npm test
 npm run quickstart
+npm run eval
 npm run pack:dry-run
 npm run publish:dry-run
 node bin/context-relay.js --help

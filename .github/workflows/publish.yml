@@ -41,6 +41,9 @@ jobs:
       - name: Quickstart
         run: npm run quickstart
 
+      - name: Fixture evals
+        run: npm run eval
+
       - name: Pack dry run
         run: npm run pack:dry-run
 
