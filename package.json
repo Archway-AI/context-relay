@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Evidence-preserving context compression CLI for agent workflows.",
   "type": "module",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "homepage": "https://github.com/Archway-AI/context-relay#readme",
   "repository": {
     "type": "git",

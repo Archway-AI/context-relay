@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Archway-AI/context-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/Archway-AI/context-relay/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@archwayai/context-relay.svg)](https://www.npmjs.com/package/@archwayai/context-relay)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Context Relay keeps agent context lean without losing the evidence.
 
@@ -212,4 +212,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
