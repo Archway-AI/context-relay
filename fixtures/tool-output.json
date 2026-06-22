@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "status": "ok",
+      "path": "src/file1.js"
+    },
+    {
+      "id": 2,
+      "status": "warning",
+      "path": "src/file2.js"
+    },
+    {
+      "id": 3,
+      "status": "ok",
+      "path": "src/file3.js"
+    }
+  ]
+}

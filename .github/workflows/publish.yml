@@ -1,0 +1,53 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run npm publish as a dry run"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          registry-url: https://registry.npmjs.org/
+
+      - name: Use npm 11 for trusted publishing
+        run: npm install -g npm@11
+
+      - name: Show runtime versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Test
+        run: npm test
+
+      - name: Quickstart
+        run: npm run quickstart
+
+      - name: Pack dry run
+        run: npm run pack:dry-run
+
+      - name: Publish dry run
+        if: inputs.dry_run
+        run: npm publish --dry-run --access public
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public

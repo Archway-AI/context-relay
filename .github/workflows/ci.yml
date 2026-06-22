@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 22.14.0
+          - 24.x
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://registry.npmjs.org/
+
+      - name: Show runtime versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Test
+        run: npm test
+
+      - name: Quickstart
+        run: npm run quickstart
+
+      - name: Pack dry run
+        run: npm run pack:dry-run
