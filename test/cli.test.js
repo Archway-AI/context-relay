@@ -436,6 +436,8 @@ describe("context-relay CLI", () => {
       "CONTRIBUTING.md",
       "LICENSE",
       "README.md",
+      "docs/eval-results.json",
+      "docs/evals.md",
       "docs/limitations.md",
       "docs/launch/README.md",
       "docs/launch/terminal-transcript.md",
@@ -450,6 +452,7 @@ describe("context-relay CLI", () => {
       ".github/ISSUE_TEMPLATE/docs_issue.md",
       ".github/ISSUE_TEMPLATE/feature_request.md",
       "scripts/quickstart.js",
+      "scripts/run-evals.js",
     ];
     for (const file of requiredFiles) {
       assert.ok(packedFiles.includes(file), `${file} missing from npm package`);

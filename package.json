@@ -24,6 +24,8 @@
   "files": [
     ".github/ISSUE_TEMPLATE/",
     "bin/",
+    "docs/eval-results.json",
+    "docs/evals.md",
     "docs/limitations.md",
     "docs/public-scope.md",
     "docs/release-checklist.md",
@@ -48,6 +50,7 @@
     "retrieval"
   ],
   "scripts": {
+    "eval": "node scripts/run-evals.js",
     "quickstart": "node scripts/quickstart.js",
     "test": "node --test",
     "pack:dry-run": "npm pack --dry-run",
