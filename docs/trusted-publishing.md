@@ -1,7 +1,7 @@
-# Trusted Publishing
+# Trusted Publishing Setup
 
-Context Relay should publish from GitHub Actions using npm Trusted Publishing,
-not a long-lived `NPM_TOKEN`.
+Context Relay should publish from GitHub Actions using npm Trusted Publishing
+instead of a long-lived `NPM_TOKEN`.
 
 ## npm Package Settings
 
@@ -23,10 +23,11 @@ deployment. The publish workflow already uses this environment.
 
 1. Confirm `npm test` passes.
 2. Confirm `npm run quickstart` passes.
-3. Confirm `npm run pack:dry-run` includes only intended files.
-4. Run the `Publish` workflow with `dry_run: true`.
-5. Run the `Publish` workflow with `dry_run: false` after release approval.
-6. Smoke test from a clean machine:
+3. Confirm `npm run eval` passes.
+4. Confirm `npm run pack:dry-run` includes only intended files.
+5. Run the `Publish` workflow with `dry_run: true`.
+6. Run the `Publish` workflow with `dry_run: false` after release approval.
+7. Smoke test from a clean machine:
 
 ```bash
 npm install -g @archwayai/context-relay

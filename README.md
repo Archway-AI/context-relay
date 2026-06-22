@@ -6,10 +6,10 @@
 
 Context Relay keeps agent context lean without losing the evidence.
 
-It wraps noisy commands, stores the raw output in a local artifact store, and
-returns a compact summary with a retrieval pointer. Agents can use the summary
-for navigation and retrieve the exact raw output before making
-correctness-sensitive decisions.
+It is a tiny local CLI for the stuff agents are bad at budgeting: test logs,
+search output, build noise, diffs, and chunky JSON. It stores raw output in a
+local artifact store, returns a compact summary, and gives the agent a pointer
+for exact retrieval when details matter.
 
 ## Install
 
@@ -39,7 +39,7 @@ the active prompt: test logs, build output, repository search, diffs, and JSON
 tool responses. Dropping that output loses evidence. Pasting all of it wastes
 tokens and makes the next step harder to inspect.
 
-Context Relay uses a simple contract:
+The contract is deliberately plain:
 
 1. Summarize bulky output into a compact, scannable form.
 2. Store the raw output locally with an opaque artifact ID.
@@ -153,8 +153,8 @@ local Context Relay artifacts and event counters in the selected store.
 - A lossy compressor for user instructions or active edit targets.
 - A guarantee of zero accuracy loss across arbitrary tasks.
 
-See [docs/limitations.md](docs/limitations.md) before using Context Relay for
-production agent workflows.
+See [docs/design.md](docs/design.md) and [docs/limitations.md](docs/limitations.md)
+before using Context Relay in a serious workflow.
 
 ## Fixture Evals
 
@@ -185,7 +185,7 @@ secret fixture is blocked and does not create an artifact. See
 - [examples/tool-json.js](examples/tool-json.js) emits representative JSON tool
   output.
 - [fixtures/tool-output.json](fixtures/tool-output.json) is a static fixture for
-  documentation and future SDK/proxy tests.
+  documentation and experiments.
 
 ## Development
 
@@ -201,7 +201,7 @@ node bin/context-relay.js run --mode compress -- node examples/tool-json.js
 
 The test suite uses only Node.js built-ins and local temporary directories.
 
-Release automation is documented in
+Release automation is documented in [docs/releasing.md](docs/releasing.md) and
 [docs/trusted-publishing.md](docs/trusted-publishing.md). The repository is set
 up for npm Trusted Publishing from GitHub Actions, so routine releases should
 not require a long-lived npm token.
