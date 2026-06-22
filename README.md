@@ -153,7 +153,7 @@ local Context Relay artifacts and event counters in the selected store.
 - A lossy compressor for user instructions or active edit targets.
 - A guarantee of zero accuracy loss across arbitrary tasks.
 
-See [docs/design.md](docs/design.md) and [docs/limitations.md](docs/limitations.md)
+See [docs/architecture.md](docs/architecture.md) and [docs/limitations.md](docs/limitations.md)
 before using Context Relay in a serious workflow.
 
 ## Fixture Evals

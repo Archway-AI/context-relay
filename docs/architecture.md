@@ -1,4 +1,4 @@
-# Design Notes
+# Architecture Notes
 
 Context Relay is intentionally small. It is a local command wrapper for agent
 workflows, not a new shell, proxy, daemon, or memory system.

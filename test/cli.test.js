@@ -436,7 +436,7 @@ describe("context-relay CLI", () => {
       "CONTRIBUTING.md",
       "LICENSE",
       "README.md",
-      "docs/design.md",
+      "docs/architecture.md",
       "docs/eval-results.json",
       "docs/evals.md",
       "docs/limitations.md",
