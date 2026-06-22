@@ -24,7 +24,7 @@
   "files": [
     ".github/ISSUE_TEMPLATE/",
     "bin/",
-    "docs/design.md",
+    "docs/architecture.md",
     "docs/eval-results.json",
     "docs/evals.md",
     "docs/limitations.md",
