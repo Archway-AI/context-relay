@@ -16,7 +16,7 @@ The eval writes [eval-results.json](eval-results.json) and checks four things:
 - child process exit codes are preserved
 - secret-like output is blocked and not stored
 
-These are launch-readiness fixtures, not a broad task-accuracy benchmark. They
+These are smoke-test fixtures, not a broad task-accuracy benchmark. They
 do not prove zero accuracy loss for arbitrary agent work. They prove the local
 contract on representative deterministic outputs.
 

@@ -15,6 +15,7 @@ Run:
 ```bash
 npm test
 npm run quickstart
+npm run eval
 ```
 
 No provider credentials, API keys, cloud services, or hosted agent accounts are
@@ -33,14 +34,14 @@ required for the test suite.
 
 - `npm test` passes.
 - Fresh-clone quickstart still works.
+- Fixture evals still pass when behavior changes.
 - New public docs avoid local absolute paths, private issue links, secrets, and
   customer data.
 - Limitations are updated when behavior changes.
-- Release checklist is updated when packaging changes.
+- Release docs are updated when packaging changes.
 
 ## Security Reports
 
 Please do not open public issues for suspected secret leakage, unsafe artifact
-storage, or retrieval bypasses. Use the private security reporting channel for
-the repository once it is public. Until then, report privately to the
-maintainers.
+storage, or retrieval bypasses. Use GitHub's private security advisory flow or
+contact the maintainers privately.
