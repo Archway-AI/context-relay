@@ -39,22 +39,22 @@ Summary:
 | Exact raw retrieval | 8/8 |
 | Exit code preservation | 8/8 |
 | Targeted retrieval oracle | 8/8 |
-| Summary-only byte reduction | 32.6-97.0% |
-| Byte reduction after targeted raw retrieval | 21.4-91.7% |
+| Summary-only byte reduction | 36.6-97.1% |
+| Byte reduction after targeted raw retrieval | 22.4-92.0% |
 | Secret block | Pass |
 
 Cases:
 
 | Case | Raw bytes | Summary bytes | Targeted bytes | Summary-only reduction | After targeted retrieval | Accuracy gate |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| quickstart-log | 1,428 | 963 | 132 | 32.6% | 23.3% | Pass |
-| search-style-output | 9,816 | 1,519 | 836 | 84.5% | 76.0% | Pass |
-| large-test-log | 53,481 | 1,629 | 5,276 | 97.0% | 87.1% | Pass |
-| typescript-diagnostics | 5,808 | 2,152 | 2,412 | 62.9% | 21.4% | Pass |
-| git-diff-like-output | 8,833 | 1,200 | 377 | 86.4% | 82.1% | Pass |
-| json-tool-output | 2,455 | 1,025 | 150 | 58.2% | 52.1% | Pass |
-| large-json-tool-output | 24,860 | 1,430 | 623 | 94.2% | 91.7% | Pass |
-| failing-log | 2,632 | 1,341 | 527 | 49.1% | 29.0% | Pass |
+| quickstart-log | 1,428 | 906 | 132 | 36.6% | 27.3% | Pass |
+| search-style-output | 9,816 | 1,462 | 836 | 85.1% | 76.6% | Pass |
+| large-test-log | 53,481 | 1,572 | 5,276 | 97.1% | 87.2% | Pass |
+| typescript-diagnostics | 5,808 | 2,095 | 2,412 | 63.9% | 22.4% | Pass |
+| git-diff-like-output | 8,833 | 1,143 | 377 | 87.1% | 82.8% | Pass |
+| json-tool-output | 2,455 | 968 | 150 | 60.6% | 54.5% | Pass |
+| large-json-tool-output | 24,860 | 1,373 | 623 | 94.5% | 92.0% | Pass |
+| failing-log | 2,632 | 1,284 | 527 | 51.2% | 31.2% | Pass |
 
 Secret-block fixture:
 

@@ -10,7 +10,7 @@ Context Relay gives Claude Code and Codex a local evidence relay: noisy shell
 output becomes a compact summary, raw logs stay retrievable, and agents stop
 burning context on build, test, search, diff, and JSON spam.
 
-Fixture evals show 32.6-97.0% summary-only byte reduction and 21.4-91.7%
+Fixture evals show 36.6-97.1% summary-only byte reduction and 22.4-92.0%
 reduction after targeted raw retrieval, with exact raw retrieval preserved.
 
 ## Install
@@ -192,8 +192,8 @@ Current committed results across 8 compression fixtures:
 
 | Metric | Result |
 | --- | ---: |
-| Summary-only byte reduction | 32.6-97.0% |
-| Byte reduction after targeted raw retrieval | 21.4-91.7% |
+| Summary-only byte reduction | 36.6-97.1% |
+| Byte reduction after targeted raw retrieval | 22.4-92.0% |
 | Exact raw retrieval | 8/8 |
 | Exit code preservation | 8/8 |
 | Targeted retrieval oracle | 8/8 |

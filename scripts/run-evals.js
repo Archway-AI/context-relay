@@ -7,12 +7,13 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const bin = path.join(repoRoot, "bin/context-relay.js");
 const storeDir = mkdtempSync(path.join(os.tmpdir(), "context-relay-eval-"));
+const nodeCommand = "node";
 
 const cases = [
   {
     id: "quickstart-log",
     description: "deterministic noisy TODO log",
-    command: [process.execPath, "examples/noisy-test-log.js"],
+    command: [nodeCommand, "examples/noisy-test-log.js"],
     grep: "status=warning",
     expectTargetedMatches: 3,
     expectExit: 0,
@@ -21,7 +22,7 @@ const cases = [
     id: "search-style-output",
     description: "large search-like result set",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "for (let i = 1; i <= 160; i++) console.log(`src/module${i % 8}/file${i}.ts:${i}:TODO item ${i} owner=agent status=${i % 13 === 0 ? 'warning' : 'ok'}`);",
     ],
@@ -33,7 +34,7 @@ const cases = [
     id: "large-test-log",
     description: "large repetitive test log",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "for (let i = 1; i <= 1000; i++) console.log(`packages/app/test${i % 25}.spec.ts:${i}:${i % 13 === 0 ? 'warning flaky retry' : 'passed'} duration=${20 + (i % 17)}ms`);",
     ],
@@ -45,7 +46,7 @@ const cases = [
     id: "typescript-diagnostics",
     description: "compiler diagnostics with repeated type errors",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "for (let i = 1; i <= 120; i++) console.log(i % 5 === 0 ? `src/components/View${i}.tsx:${i}:7 - error TS2322: Type 'string' is not assignable to type 'number'.` : `src/components/View${i}.tsx:${i}:7 - ok`); process.exit(2);",
     ],
@@ -57,7 +58,7 @@ const cases = [
     id: "git-diff-like-output",
     description: "large diff-like output with marked risky changes",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "for (let i = 1; i <= 220; i++) console.log(`${i % 2 === 0 ? '+' : '-'} src/file${i % 15}.ts line ${i} ${i % 29 === 0 ? 'TODO risky migration path' : 'ordinary change'}`);",
     ],
@@ -68,7 +69,7 @@ const cases = [
   {
     id: "json-tool-output",
     description: "structured JSON tool response",
-    command: [process.execPath, "examples/tool-json.js"],
+    command: [nodeCommand, "examples/tool-json.js"],
     grep: "warning",
     expectTargetedMatches: 5,
     expectExit: 0,
@@ -77,7 +78,7 @@ const cases = [
     id: "large-json-tool-output",
     description: "large structured JSON tool response",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "const rows=Array.from({length:240},(_,i)=>({id:i,status:i%12===0?'warning':'ok',path:`src/file${i}.js`,tokens:100+i})); console.log(JSON.stringify({items:rows}, null, 2));",
     ],
@@ -89,7 +90,7 @@ const cases = [
     id: "failing-log",
     description: "non-zero command with useful failure lines",
     command: [
-      process.execPath,
+      nodeCommand,
       "-e",
       "for (let i = 1; i <= 96; i++) console.log(i % 9 === 0 ? `test${i}.spec.ts:${i}:error expected ok received fail` : `test${i}.spec.ts:${i}:passed`); process.exit(1);",
     ],
@@ -102,7 +103,7 @@ const cases = [
 const secretCase = {
   id: "secret-block",
   description: "secret-like output is blocked and not stored",
-  command: [process.execPath, "-e", "console.log('api_key=abcdefghijklmnop123456')"],
+  command: [nodeCommand, "-e", "console.log('api_key=abcdefghijklmnop123456')"],
 };
 
 function bytes(text) {
@@ -124,6 +125,8 @@ function run(command, options = {}) {
       ...process.env,
       CONTEXT_RELAY_STORE_DIR: storeDir,
       CONTEXT_RELAY_RUN_ID: options.runId || "eval",
+      CONTEXT_RELAY_DISPLAY_CWD: "/workspace/context-relay",
+      CONTEXT_RELAY_FIXED_DURATION_MS: "7",
     },
     encoding: "utf8",
   });
