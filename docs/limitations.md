@@ -56,7 +56,9 @@ local proxy modes are future work.
 - Cleanup is local-store only.
 - Summaries are deterministic heuristics, not model-generated eval summaries.
 - There is no hosted artifact browser.
-- There is no default-on shell interception.
+- Claude Code shell wrapping is opt-in through `context-relay init --claude`.
+- Codex shell wrapping is opt-in through `context-relay init --codex` and
+  requires hook trust review before non-managed hooks run.
 - API-agent request/response middleware is not implemented yet.
 
 ## Public Claims Boundary

@@ -13,7 +13,13 @@ let tempDirs = [];
 function run(args, options = {}) {
   return spawnSync(process.execPath, [bin, ...args], {
     cwd: options.cwd || process.cwd(),
-    env: { ...process.env, CONTEXT_RELAY_STORE_DIR: storeDir, CONTEXT_RELAY_RUN_ID: "testrun" },
+    env: {
+      ...process.env,
+      CONTEXT_RELAY_STORE_DIR: storeDir,
+      CONTEXT_RELAY_RUN_ID: "testrun",
+      ...(options.env || {}),
+    },
+    input: options.input,
     encoding: "utf8",
   });
 }
@@ -75,6 +81,7 @@ describe("context-relay CLI", () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /context-relay run/);
     assert.match(result.stdout, /context-relay cleanup/);
+    assert.match(result.stdout, /context-relay hook claude\|codex/);
   });
 
   it("passes small output through", () => {
@@ -414,6 +421,152 @@ describe("context-relay CLI", () => {
     assert.equal(JSON.parse(stats.stdout).runs, 0);
   });
 
+  it("rewrites eligible shell commands for agent hooks", () => {
+    const result = run(["rewrite", "git", "status", "--short"]);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "context-relay run --mode auto -- bash -lc 'git status --short'\n");
+
+    const skipped = run(["rewrite", "context-relay", "stats"]);
+    assert.equal(skipped.status, 1);
+    assert.equal(skipped.stdout, "");
+
+    const mutatingGit = run(["rewrite", "git", "push"]);
+    assert.equal(mutatingGit.status, 1);
+    assert.equal(mutatingGit.stdout, "");
+
+    const compound = run(["rewrite", "git", "status", "&&", "echo", "unsafe"]);
+    assert.equal(compound.status, 1);
+    assert.equal(compound.stdout, "");
+
+    const compactPipe = run(["rewrite", "git", "grep", "TODO|FIXME"]);
+    assert.equal(compactPipe.status, 1);
+    assert.equal(compactPipe.stdout, "");
+
+    const compactSequence = run(["rewrite", "git", "status;echo", "unsafe"]);
+    assert.equal(compactSequence.status, 1);
+    assert.equal(compactSequence.stdout, "");
+
+    const devServer = run(["rewrite", "npm", "run", "dev"]);
+    assert.equal(devServer.status, 1);
+    assert.equal(devServer.stdout, "");
+
+    const interactiveInit = run(["rewrite", "npm", "init"]);
+    assert.equal(interactiveInit.status, 1);
+    assert.equal(interactiveInit.stdout, "");
+
+    const packageTest = run(["rewrite", "npm", "test"]);
+    assert.equal(packageTest.status, 0);
+    assert.equal(packageTest.stdout, "context-relay run --mode auto -- bash -lc 'npm test'\n");
+  });
+
+  it("emits Claude Code hook updatedInput for eligible Bash commands", () => {
+    const payload = {
+      tool_input: {
+        command: "pnpm test",
+        description: "run tests",
+      },
+    };
+    const result = run(["hook", "claude"], { input: JSON.stringify(payload) });
+    assert.equal(result.status, 0);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.hookSpecificOutput.hookEventName, "PreToolUse");
+    assert.equal(output.hookSpecificOutput.permissionDecision, undefined);
+    assert.equal(
+      output.hookSpecificOutput.updatedInput.command,
+      "context-relay run --mode auto -- bash -lc 'pnpm test'",
+    );
+    assert.equal(output.hookSpecificOutput.updatedInput.description, "run tests");
+  });
+
+  it("emits Codex hook updatedInput with required allow decision for eligible Bash commands", () => {
+    const payload = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: {
+        command: "pnpm test",
+      },
+    };
+    const result = run(["hook", "codex"], { input: JSON.stringify(payload) });
+    assert.equal(result.status, 0);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.hookSpecificOutput.hookEventName, "PreToolUse");
+    assert.equal(output.hookSpecificOutput.permissionDecision, "allow");
+    assert.equal(
+      output.hookSpecificOutput.updatedInput.command,
+      "context-relay run --mode auto -- bash -lc 'pnpm test'",
+    );
+  });
+
+  it("leaves sensitive Claude Code hook commands unchanged", () => {
+    const result = run(["hook", "claude"], {
+      input: JSON.stringify({ tool_input: { command: "gh auth token" } }),
+    });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+  });
+
+  it("installs Claude and Codex hooks without touching real homes", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+
+    const result = run(["init", "--all"], {
+      env: {
+        CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+        CONTEXT_RELAY_CODEX_HOME: codexHome,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const install = JSON.parse(result.stdout);
+    assert.equal(install.installed.length, 2);
+
+    const claudeSettings = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(claudeSettings.hooks.PreToolUse.at(-1), {
+      matcher: "Bash",
+      hooks: [{ type: "command", command: "context-relay hook claude" }],
+    });
+    assert.match(await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8"), /@CONTEXT_RELAY\.md/);
+    assert.match(await readFile(path.join(claudeHome, "CONTEXT_RELAY.md"), "utf8"), /Context Relay wraps noisy shell output/);
+
+    assert.match(await readFile(path.join(codexHome, "AGENTS.md"), "utf8"), /Context Relay managed block/);
+    assert.match(await readFile(path.join(codexHome, "CONTEXT_RELAY.md"), "utf8"), /Context Relay wraps noisy shell output/);
+    const codexHooks = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.deepEqual(codexHooks.hooks.PreToolUse.at(-1), {
+      matcher: "Bash",
+      hooks: [
+        {
+          type: "command",
+          command: "context-relay hook codex",
+          statusMessage: "Wrapping noisy shell output with Context Relay",
+        },
+      ],
+    });
+
+    const status = run(["status"], {
+      env: {
+        CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+        CONTEXT_RELAY_CODEX_HOME: codexHome,
+      },
+    });
+    assert.equal(status.status, 0, status.stderr);
+    const statusPayload = JSON.parse(status.stdout);
+    assert.equal(statusPayload.claude.automaticShellWrapping, true);
+    assert.equal(statusPayload.codex.automaticShellWrapping, true);
+    assert.equal(statusPayload.codex.awarenessLinked, true);
+
+    const uninstall = run(["uninstall", "--all"], {
+      env: {
+        CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+        CONTEXT_RELAY_CODEX_HOME: codexHome,
+      },
+    });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    assert.doesNotMatch(await readFile(path.join(claudeHome, "settings.json"), "utf8"), /context-relay hook claude/);
+    assert.doesNotMatch(await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8"), /@CONTEXT_RELAY\.md/);
+    assert.doesNotMatch(await readFile(path.join(codexHome, "AGENTS.md"), "utf8"), /Context Relay managed block/);
+    assert.doesNotMatch(await readFile(path.join(codexHome, "hooks.json"), "utf8"), /context-relay hook codex/);
+  });
+
   it("ships required public packaging assets without local private paths", async () => {
     const packageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "@archwayai/context-relay");
@@ -437,6 +590,7 @@ describe("context-relay CLI", () => {
       "LICENSE",
       "README.md",
       "docs/architecture.md",
+      "docs/agent-integrations.md",
       "docs/eval-results.json",
       "docs/evals.md",
       "docs/limitations.md",

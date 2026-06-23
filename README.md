@@ -4,18 +4,20 @@
 [![npm](https://img.shields.io/npm/v/@archwayai/context-relay.svg)](https://www.npmjs.com/package/@archwayai/context-relay)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Context Relay keeps agent context lean without losing the evidence.
+**Token savings without throwing away evidence.**
 
-It is a tiny local CLI for the stuff agents are bad at budgeting: test logs,
-search output, build noise, diffs, and chunky JSON. It stores raw output in a
-local artifact store, returns a compact summary, and gives the agent a pointer
-for exact retrieval when details matter.
+Context Relay gives Claude Code and Codex a local evidence relay: noisy shell
+output becomes a compact summary, raw logs stay retrievable, and agents stop
+burning context on build, test, search, diff, and JSON spam.
+
+Fixture evals show 32.6-97.0% summary-only byte reduction and 21.4-91.7%
+reduction after targeted raw retrieval, with exact raw retrieval preserved.
 
 ## Install
 
 Context Relay requires Node.js 22 or newer and has no runtime dependencies.
 
-Install the package after the first npm release:
+Install the package:
 
 ```bash
 npm install -g @archwayai/context-relay
@@ -54,6 +56,18 @@ From a clone of this repository:
 npm test
 npm run quickstart
 ```
+
+Install agent integrations after the package is on your PATH:
+
+```bash
+context-relay init --claude
+context-relay init --codex
+context-relay status
+```
+
+Claude Code and Codex get automatic Bash command wrapping through `PreToolUse`
+hooks. Codex requires you to review and trust new hooks with `/hooks` before
+non-managed hooks run.
 
 Or run the demo manually:
 
@@ -112,6 +126,11 @@ context-relay retrieve <artifact-id> [--range start:end] [--grep pattern]
 context-relay inspect <artifact-id>
 context-relay stats
 context-relay cleanup [--all]
+context-relay rewrite <shell-command>
+context-relay hook claude|codex
+context-relay init [--claude] [--codex] [--all] [--dry-run]
+context-relay status [--json]
+context-relay uninstall [--claude] [--codex] [--all] [--dry-run]
 ```
 
 Modes:
@@ -145,6 +164,8 @@ local Context Relay artifacts and event counters in the selected store.
 - Reversible summaries where the raw evidence remains available.
 - Local CLI workflows for Claude Code, Codex, and API-based agents that can run
   shell commands and then retrieve raw artifacts.
+- Claude Code and Codex Bash workflows that should work out of the box after
+  `context-relay init`.
 
 ## What It Is Not
 
@@ -156,6 +177,9 @@ local Context Relay artifacts and event counters in the selected store.
 See [docs/architecture.md](docs/architecture.md) and [docs/limitations.md](docs/limitations.md)
 before using Context Relay in a serious workflow.
 
+Agent setup details live in
+[docs/agent-integrations.md](docs/agent-integrations.md).
+
 ## Fixture Evals
 
 Run the deterministic fixture evals:
@@ -164,17 +188,21 @@ Run the deterministic fixture evals:
 npm run eval
 ```
 
-Current committed results:
+Current committed results across 8 compression fixtures:
 
-| Case | Raw bytes | Summary bytes | Targeted retrieval bytes | Reduction after targeted retrieval |
-| --- | ---: | ---: | ---: | ---: |
-| quickstart-log | 1,428 | 963 | 132 | 23.3% |
-| search-style-output | 9,816 | 1,519 | 836 | 76.0% |
-| json-tool-output | 2,455 | 1,025 | 150 | 52.1% |
-| failing-log | 2,632 | 1,341 | 527 | 29.0% |
+| Metric | Result |
+| --- | ---: |
+| Summary-only byte reduction | 32.6-97.0% |
+| Byte reduction after targeted raw retrieval | 21.4-91.7% |
+| Exact raw retrieval | 8/8 |
+| Exit code preservation | 8/8 |
+| Targeted retrieval oracle | 8/8 |
+| Secret block | Pass |
 
-All four fixture cases pass exact raw retrieval and exit-code preservation. The
-secret fixture is blocked and does not create an artifact. See
+Summary-only reduction is the apples-to-apples comparison against tools that
+only measure raw output versus summary output. The after-retrieval metric is
+stricter: it includes the summary plus the raw evidence slice an agent would
+retrieve before making a correctness-sensitive decision. See
 [docs/evals.md](docs/evals.md) and
 [docs/eval-results.json](docs/eval-results.json).
 

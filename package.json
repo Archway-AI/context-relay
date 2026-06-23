@@ -25,6 +25,7 @@
     ".github/ISSUE_TEMPLATE/",
     "bin/",
     "docs/architecture.md",
+    "docs/agent-integrations.md",
     "docs/eval-results.json",
     "docs/evals.md",
     "docs/limitations.md",
