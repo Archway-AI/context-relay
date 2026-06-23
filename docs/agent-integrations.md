@@ -114,11 +114,12 @@ tests before it belongs in the public quickstart.
 
 Two existing projects shaped this integration design:
 
-- RTK shows the right Claude Code primitive: a Bash `PreToolUse` hook that returns
-  an `updatedInput` command, plus a small awareness doc so the agent understands
-  the rewritten output.
-- Headroom shows the right install ergonomics: managed config changes, clear
-  provider boundaries, status checks, and reversible setup.
+- [RTK](https://github.com/rtk-ai/rtk) shows the right Claude Code primitive: a
+  Bash `PreToolUse` hook that returns an `updatedInput` command, plus a small
+  awareness doc so the agent understands the rewritten output.
+- [Headroom](https://github.com/chopratejas/headroom) shows the right install
+  ergonomics: managed config changes, clear provider boundaries, status checks,
+  and reversible setup.
 - Codex's official hooks docs show the equivalent `PreToolUse` hook and the
   required `permissionDecision: "allow"` shape for `updatedInput` rewrites.
 

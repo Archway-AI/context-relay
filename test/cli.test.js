@@ -438,6 +438,14 @@ describe("context-relay CLI", () => {
     assert.equal(compound.status, 1);
     assert.equal(compound.stdout, "");
 
+    const compactPipe = run(["rewrite", "git", "grep", "TODO|FIXME"]);
+    assert.equal(compactPipe.status, 1);
+    assert.equal(compactPipe.stdout, "");
+
+    const compactSequence = run(["rewrite", "git", "status;echo", "unsafe"]);
+    assert.equal(compactSequence.status, 1);
+    assert.equal(compactSequence.stdout, "");
+
     const devServer = run(["rewrite", "npm", "run", "dev"]);
     assert.equal(devServer.status, 1);
     assert.equal(devServer.stdout, "");
