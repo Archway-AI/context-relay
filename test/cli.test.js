@@ -336,7 +336,7 @@ describe("context-relay CLI", () => {
 
   it("reports stats", async () => {
     run(["run", "--", process.execPath, "-e", "console.log('small')"]);
-    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
+    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(120)]);
     run(["retrieve", artifactId(compressed.stdout)]);
     const result = run(["stats"]);
     assert.equal(result.status, 0);
