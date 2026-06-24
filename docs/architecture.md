@@ -42,7 +42,7 @@ Good claims:
 - reduces prompt load on noisy fixtures and command output
 - keeps raw evidence retrievable
 - preserves child process exit codes
-- makes compression/retrieval visible in local stats
+- makes compression/retrieval visible in local stats, `gain`, and `discover`
 
 Bad claims:
 

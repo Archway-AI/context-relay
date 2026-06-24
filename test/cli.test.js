@@ -81,6 +81,8 @@ describe("context-relay CLI", () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /context-relay run/);
     assert.match(result.stdout, /context-relay cleanup/);
+    assert.match(result.stdout, /context-relay gain/);
+    assert.match(result.stdout, /context-relay discover/);
     assert.match(result.stdout, /context-relay hook claude\|codex/);
   });
 
@@ -334,7 +336,7 @@ describe("context-relay CLI", () => {
 
   it("reports stats", async () => {
     run(["run", "--", process.execPath, "-e", "console.log('small')"]);
-    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
+    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(120)]);
     run(["retrieve", artifactId(compressed.stdout)]);
     const result = run(["stats"]);
     assert.equal(result.status, 0);
@@ -346,7 +348,52 @@ describe("context-relay CLI", () => {
     assert.ok(stats.raw_bytes > 0);
     assert.ok(stats.sent_bytes > 0);
     assert.ok(stats.retrieval_bytes > 0);
+    assert.ok(stats.gross_saved_bytes > 0);
+    assert.ok(stats.net_saved_bytes >= 0);
+    assert.ok(stats.gross_efficiency_percent > 0);
     assert.ok((await readFile(path.join(storeDir, "events.jsonl"), "utf8")).includes("compressed"));
+  });
+
+  it("reports gain and discovers local setup and reducer opportunities", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = {
+      CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+      CONTEXT_RELAY_CODEX_HOME: codexHome,
+    };
+
+    run(["run", "--", process.execPath, "-e", "console.log('small')"], { env });
+    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(220)], { env });
+    run(["retrieve", artifactId(compressed.stdout), "--grep", "TODO item 7"], { env });
+
+    const gain = run(["gain", "--json"], { env });
+    assert.equal(gain.status, 0, gain.stderr);
+    const gainPayload = JSON.parse(gain.stdout);
+    assert.ok(gainPayload.summary.gross_saved_bytes > 0);
+    assert.ok(gainPayload.summary.net_saved_bytes > 0);
+    assert.equal(gainPayload.top_commands[0].command, "node");
+    assert.ok(gainPayload.top_commands[0].saved_estimated_tokens > 0);
+
+    const gainText = run(["gain"], { env });
+    assert.equal(gainText.status, 0, gainText.stderr);
+    assert.match(gainText.stdout, /Context Relay gain/);
+    assert.match(gainText.stdout, /Top command savings/);
+
+    const discover = run(["discover", "--json"], { env });
+    assert.equal(discover.status, 0, discover.stderr);
+    const discoverPayload = JSON.parse(discover.stdout);
+    assert.ok(discoverPayload.setup.some((item) => item.includes("Claude Code hook is not installed")));
+    assert.ok(discoverPayload.setup.some((item) => item.includes("Codex hook is not installed")));
+    assert.ok(
+      [...discoverPayload.high_gain, ...discoverPayload.reducer_candidates].some((entry) => entry.command === "node"),
+    );
+
+    const discoverText = run(["discover"], { env });
+    assert.equal(discoverText.status, 0, discoverText.stderr);
+    assert.match(discoverText.stdout, /Context Relay discover/);
+    assert.match(discoverText.stdout, /Setup gaps/);
+    assert.match(discoverText.stdout, /Already working well|Reducer candidates/);
   });
 
   it("keeps stats across parallel retrievals", async () => {
