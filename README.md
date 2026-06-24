@@ -103,6 +103,20 @@ CONTEXT_RELAY_STORE_DIR=/tmp/context-relay-demo \
   node bin/context-relay.js stats
 ```
 
+See estimated saved bytes/tokens and the commands doing the work:
+
+```bash
+CONTEXT_RELAY_STORE_DIR=/tmp/context-relay-demo \
+  node bin/context-relay.js gain
+```
+
+Find setup gaps and the next reducer candidates:
+
+```bash
+CONTEXT_RELAY_STORE_DIR=/tmp/context-relay-demo \
+  node bin/context-relay.js discover
+```
+
 Clean expired artifacts:
 
 ```bash
@@ -125,6 +139,8 @@ context-relay raw -- <command>
 context-relay retrieve <artifact-id> [--range start:end] [--grep pattern]
 context-relay inspect <artifact-id>
 context-relay stats
+context-relay gain [--json]
+context-relay discover [--json]
 context-relay cleanup [--all]
 context-relay rewrite <shell-command>
 context-relay hook claude|codex
@@ -142,6 +158,14 @@ Modes:
 `raw` is an explicit escape hatch. It does not apply Context Relay secret
 filtering to child output, so only use it for commands that are safe to show to
 the agent.
+
+`gain` reports gross and net local savings from the event log. Gross savings are
+raw bytes minus summary bytes. Net savings also subtracts retrieved raw evidence,
+so it is the stricter number for evidence-preserving workflows.
+
+`discover` turns the same local event log into next actions: missing Claude/Codex
+hook setup, high-gain commands, passthrough candidates, command-aware reducer
+candidates, and secret/PII blocks.
 
 ## Storage
 
