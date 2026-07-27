@@ -163,6 +163,10 @@ the agent.
 raw bytes minus summary bytes. Net savings also subtracts retrieved raw evidence,
 so it is the stricter number for evidence-preserving workflows.
 
+`stats` and `gain` also report `compression_savings_pct`, `retrieval_rate`,
+`blocked_rate`, and `fallback_rate`. Every metric is defined in
+[docs/evals.md](docs/evals.md).
+
 `discover` turns the same local event log into next actions: missing Claude/Codex
 hook setup, high-gain commands, passthrough candidates, command-aware reducer
 candidates, and secret/PII blocks.
@@ -236,8 +240,9 @@ retrieve before making a correctness-sensitive decision. See
   noisy shell output for quickstart demos.
 - [examples/tool-json.js](examples/tool-json.js) emits representative JSON tool
   output.
-- [fixtures/tool-output.json](fixtures/tool-output.json) is a static fixture for
-  documentation and experiments.
+- [fixtures/tool-output.json](fixtures/tool-output.json) is a static JSON tool
+  response used by the test suite and available for documentation and
+  experiments.
 
 ## Development
 
