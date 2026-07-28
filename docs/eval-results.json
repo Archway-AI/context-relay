@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-24T00:20:20.937Z",
-  "node": "v22.9.0",
+  "generated_at": "2026-07-28T13:55:35.770Z",
+  "node": "v22.22.3",
   "note": "Deterministic fixture evals. These are not broad task-accuracy benchmarks.",
   "summary": {
     "compression_cases": 8,
@@ -189,11 +189,12 @@
     },
     {
       "id": "secret-block",
-      "description": "secret-like output is blocked and not stored",
+      "description": "secret-like output is blocked and stored only as a verified-redacted artifact",
       "relayed_exit_code": 0,
       "blocked": true,
-      "artifact_created": false,
-      "secret_absent_from_output": true
+      "artifact_created": true,
+      "secret_absent_from_output": true,
+      "redacted_artifact_clean": true
     }
   ]
 }

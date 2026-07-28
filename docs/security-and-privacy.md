@@ -32,6 +32,10 @@ Secrets and PII are not compression candidates.
 
 Required behavior:
 - block or redact detected secrets before summary generation
+- store a redacted artifact only when re-running detection on the redacted text
+  finds nothing; that gate is checked on every blocked run
+- drop output that cannot be safely redacted without storing it at all
+  (`CR_BLOCK_SECRET_UNSTORABLE`), and never fall back to relaying the raw text
 - do not include secret-looking strings in retrieval markers
 - preserve redaction metadata
 - treat unknown detector failures as passthrough or hard fail, not summarize

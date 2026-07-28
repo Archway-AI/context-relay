@@ -15,7 +15,7 @@ The eval writes [eval-results.json](eval-results.json) and checks five things:
 - exact raw output can be retrieved from the artifact pointer
 - targeted retrieval returns the expected evidence-line count
 - child process exit codes are preserved
-- secret-like output is blocked and not stored
+- secret-like output is blocked and stored only as a verified-redacted artifact
 
 The top-level reduction metric is split in two:
 
@@ -59,8 +59,9 @@ Cases:
 Secret-block fixture:
 
 - blocked: Pass
-- artifact created: No
+- redacted artifact created: Yes
 - secret absent from relayed output: Pass
+- redacted artifact free of the secret: Pass
 
 The committed JSON report is the source of truth for exact numbers because byte
 counts can vary slightly by Node/npm environment and repository path length.

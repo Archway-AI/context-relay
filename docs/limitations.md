@@ -18,9 +18,25 @@ Do not claim zero accuracy loss without task-specific evals.
 
 ## Secret Detection
 
-Secret detection is heuristic. Context Relay blocks common labeled secrets,
-`sk-...` values, JWT-like values, private-key headers, and opaque token-like
-strings, but it cannot guarantee complete secret discovery.
+Secret detection is heuristic and shape-based. Context Relay blocks labeled
+assignments (`api_key=`, `secret:`, `token=`, `password=`) and known provider key
+shapes: `sk-...`, Stripe `sk_live_`/`sk_test_`, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/
+`ghr_` and `github_pat_`, AWS `AKIA`/`ASIA` key ids, Slack `xox*-`, Google
+`AIza...`, GitLab `glpat-`, JWT-like values, and private-key headers. It cannot
+guarantee complete secret discovery.
+
+When output is blocked, the raw text is not relayed. Instead Context Relay
+redacts it and stores the redacted copy as an artifact — but only after
+re-running detection over the redacted text finds nothing. That verification gate
+is what makes the stored copy safe; output that cannot pass it is dropped
+entirely, with reason code `CR_BLOCK_SECRET_UNSTORABLE`.
+
+Explicit non-goal: bare unlabeled opaque strings are **not** blocked. Detection
+deliberately does not treat generic high-entropy tokens as secrets, because git
+SHAs, UUIDs, checksums, npm integrity hashes, and base64 blobs are routine
+command output and destroying them removes the evidence the tool exists to
+preserve. A random-looking string echoed on its own, with no label and no
+recognizable key prefix, will pass through.
 
 Use `raw` only for commands whose output is safe to show directly to an agent.
 

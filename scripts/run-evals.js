@@ -102,7 +102,7 @@ const cases = [
 
 const secretCase = {
   id: "secret-block",
-  description: "secret-like output is blocked and not stored",
+  description: "secret-like output is blocked and stored only as a verified-redacted artifact",
   command: [nodeCommand, "-e", "console.log('api_key=abcdefghijklmnop123456')"],
 };
 
@@ -194,13 +194,21 @@ for (const testCase of cases) {
 const secret = runRelay(["run", "--mode", "compress", "--", ...secretCase.command], {
   runId: secretCase.id,
 });
+const secretId = artifactId(secret.stdout);
+const secretRetrieval = secretId ? runRelay(["retrieve", secretId], { runId: secretCase.id }) : null;
 evaluated.push({
   id: secretCase.id,
   description: secretCase.description,
   relayed_exit_code: secret.status,
   blocked: /CR_BLOCK_SECRET/.test(secret.stdout),
-  artifact_created: Boolean(artifactId(secret.stdout)),
+  artifact_created: Boolean(secretId),
   secret_absent_from_output: !secret.stdout.includes("abcdefghijklmnop123456"),
+  redacted_artifact_clean: Boolean(
+    secretRetrieval &&
+      secretRetrieval.status === 0 &&
+      secretRetrieval.stdout.includes("[REDACTED_SECRET]") &&
+      !secretRetrieval.stdout.includes("abcdefghijklmnop123456"),
+  ),
 });
 
 const compressionCases = evaluated.filter((entry) => "exact_retrieval" in entry);
@@ -224,7 +232,12 @@ const report = {
       compressionCases.map((entry) => entry.reduction_after_targeted_retrieval_percent),
     ),
     secret_block_passed: evaluated.some(
-      (entry) => entry.id === "secret-block" && entry.blocked && !entry.artifact_created && entry.secret_absent_from_output,
+      (entry) =>
+        entry.id === "secret-block" &&
+        entry.blocked &&
+        entry.artifact_created &&
+        entry.secret_absent_from_output &&
+        entry.redacted_artifact_clean,
     ),
   },
   cases: evaluated,
@@ -240,7 +253,9 @@ for (const entry of evaluated) {
       `${entry.id}: raw=${entry.raw_bytes}B summary=${entry.summary_bytes}B targeted=${entry.targeted_retrieval_bytes}B summary_only=${entry.reduction_before_retrieval_percent}% after_retrieval=${entry.reduction_after_targeted_retrieval_percent}% exact=${entry.exact_retrieval} exit=${entry.exit_code_preserved} targeted=${entry.targeted_retrieval_passed}`,
     );
   } else {
-    console.log(`${entry.id}: blocked=${entry.blocked} artifact=${entry.artifact_created} secret_absent=${entry.secret_absent_from_output}`);
+    console.log(
+      `${entry.id}: blocked=${entry.blocked} redacted_artifact=${entry.artifact_created} secret_absent=${entry.secret_absent_from_output} redacted_artifact_clean=${entry.redacted_artifact_clean}`,
+    );
   }
 }
 

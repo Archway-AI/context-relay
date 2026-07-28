@@ -248,7 +248,7 @@ describe("context-relay CLI", () => {
     assert.doesNotMatch(result.stdout, /anothersecret/);
   });
 
-  it("blocks standalone high-entropy child output", () => {
+  it("does not block bare unlabeled opaque strings", () => {
     const result = run([
       "run",
       "--mode",
@@ -259,19 +259,203 @@ describe("context-relay CLI", () => {
       "console.log('abcdefghijklmnopqrstuvwxyz123456')",
     ]);
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /CR_BLOCK_SECRET/);
-    assert.doesNotMatch(result.stdout, /abcdefghijklmnopqrstuvwxyz123456/);
-    assert.doesNotMatch(result.stdout, /artifact:cr:/);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.match(retrieve.stdout, /abcdefghijklmnopqrstuvwxyz123456/);
   });
 
-  it("blocks standalone JWT-like child output", () => {
+  it("blocks standalone JWT-like child output and keeps redacted evidence", () => {
     const jwt =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkNvbnRleHRSZWxheSJ9.GHvqPZf8JW7V1DCxUX7wnp80lVj0lF83VCyA";
     const result = run(["run", "--mode", "compress", "--", process.execPath, "-e", `console.log('${jwt}')`]);
     assert.equal(result.status, 0);
     assert.match(result.stdout, /CR_BLOCK_SECRET/);
     assert.doesNotMatch(result.stdout, new RegExp(jwt));
-    assert.doesNotMatch(result.stdout, /artifact:cr:/);
+    assert.match(result.stdout, /artifact:cr:/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.match(retrieve.stdout, /\[REDACTED_SECRET\]/);
+    assert.doesNotMatch(retrieve.stdout, new RegExp(jwt));
+    assert.match(retrieve.stderr, /CR_NOTICE_REDACTED/);
+  });
+
+  it("relays real git log output instead of blocking it", async () => {
+    const repoDir = await makeTempGitRepo();
+    for (const message of ["first", "second"]) {
+      const commit = spawnSync(
+        "git",
+        [
+          "-c",
+          "user.name=CR Test",
+          "-c",
+          "user.email=cr-test@invalid.local",
+          "-c",
+          "commit.gpgsign=false",
+          "-c",
+          "core.hooksPath=/dev/null",
+          "commit",
+          "--allow-empty",
+          "-m",
+          message,
+        ],
+        { cwd: repoDir, encoding: "utf8" },
+      );
+      assert.equal(commit.status, 0, commit.stderr);
+    }
+
+    const result = run(["run", "--mode", "compress", "--", "git", "log", "-2"], { cwd: repoDir });
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/);
+    assert.match(result.stdout, /raw: \[artifact:cr:/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)], { cwd: repoDir });
+    assert.equal(retrieve.status, 0);
+    assert.match(retrieve.stdout, /commit [0-9a-f]{40}/);
+  });
+
+  it("does not treat UUIDs as secrets", () => {
+    const uuid = "550e8400-e29b-41d4-a716-446655440000";
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `for(let i=0;i<30;i++)console.log('id: ${uuid}')`,
+      "--",
+      uuid,
+    ]);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/);
+    // Regression: the displayed command line must not mangle the UUID argument.
+    assert.match(result.stdout, new RegExp(`command: .*${uuid}`));
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.ok(retrieve.stdout.includes(uuid));
+  });
+
+  it("does not treat base64 blobs as secrets", () => {
+    const blob = Buffer.from("context relay base64 evidence payload for fixtures").toString("base64");
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `const b=${JSON.stringify(blob)};for(let i=0;i<30;i++)console.log('blob: '+b)`,
+    ]);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.ok(retrieve.stdout.includes(blob));
+  });
+
+  it("stores redacted evidence for real-shaped keys", () => {
+    // Built by concatenation so the literals never look like live credentials.
+    const fixtures = ["ghp_" + "A".repeat(36), "AKIA" + "IOSFODNN7EXAMPLE", "sk-" + "a1B2".repeat(6)];
+    for (const fixture of fixtures) {
+      const result = run([
+        "run",
+        "--mode",
+        "compress",
+        "--",
+        process.execPath,
+        "-e",
+        `console.log('value ' + ${JSON.stringify(fixture)})`,
+      ]);
+      assert.equal(result.status, 0, fixture);
+      assert.match(result.stdout, /CR_BLOCK_SECRET/, fixture);
+      assert.ok(!result.stdout.includes(fixture), fixture);
+      assert.match(result.stdout, /raw: \[artifact:cr:/, fixture);
+
+      const id = artifactId(result.stdout);
+      const retrieve = run(["retrieve", id]);
+      assert.equal(retrieve.status, 0, fixture);
+      assert.match(retrieve.stdout, /\[REDACTED_SECRET\]/, fixture);
+      assert.ok(!retrieve.stdout.includes(fixture), fixture);
+      assert.match(retrieve.stderr, /CR_NOTICE_REDACTED/, fixture);
+
+      const inspect = run(["inspect", id]);
+      assert.equal(inspect.status, 0, fixture);
+      const metadata = JSON.parse(inspect.stdout);
+      assert.equal(metadata.content.redacted, true, fixture);
+      assert.equal(metadata.policy.redaction_policy, "standard-secret-redaction", fixture);
+    }
+  });
+
+  it("redaction invariant: redacted text never re-triggers detection", async () => {
+    const { hasSecret, redactSecrets } = await import("../lib/policy.js");
+    const secrets = [
+      "api_key=abcdefghijklmnop123456",
+      "ghp_" + "A".repeat(36),
+      "AKIA" + "IOSFODNN7EXAMPLE",
+      "sk-" + "a1B2".repeat(6),
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkNvbnRleHRSZWxheSJ9.GHvqPZf8JW7V1DCxUX7wnp80lVj0lF83VCyA",
+      "-----BEGIN PRIVATE KEY-----\nMIIEvQfakebodyMIIEvQfakebodyMIIEvQfakebody\n-----END PRIVATE KEY-----",
+    ];
+    for (const secret of secrets) {
+      assert.equal(hasSecret(secret), true, `expected detection for ${secret.slice(0, 24)}`);
+      assert.equal(hasSecret(redactSecrets(secret)), false, `gate failed for ${secret.slice(0, 24)}`);
+    }
+
+    const safe = [
+      "commit 3f2b1c9d4e5a6b7c8d9e0f1a2b3c4d5e6f708192",
+      "id: 550e8400-e29b-41d4-a716-446655440000",
+      "blob: " + Buffer.from("context relay base64 evidence payload for fixtures").toString("base64"),
+    ];
+    for (const line of safe) {
+      assert.equal(hasSecret(line), false, `false positive for ${line.slice(0, 24)}`);
+    }
+  });
+
+  it("preserves child exit code and warns when the store is unavailable", async () => {
+    const blocker = path.join(storeDir, "not-a-dir");
+    await writeFile(blocker, "x");
+    const broken = path.join(blocker, "sub");
+    const env = { CONTEXT_RELAY_STORE_DIR: broken };
+
+    const noisy = run(["run", "--mode", "compress", "--", process.execPath, "examples/noisy-test-log.js"], {
+      cwd: packageRoot,
+      env,
+    });
+    assert.equal(noisy.status, 0);
+    assert.match(noisy.stdout, /status=warning/);
+    assert.doesNotMatch(noisy.stdout, /CR compressed output/);
+    assert.match(noisy.stderr, /CR_STORE_FAILED/);
+    assert.match(noisy.stderr, /without compression/);
+
+    const failing = run(
+      ["run", "--mode", "compress", "--", process.execPath, "-e", "console.log('x'.repeat(2000)); process.exit(7)"],
+      { env },
+    );
+    assert.equal(failing.status, 7);
+    assert.match(failing.stderr, /CR_STORE_FAILED/);
+
+    const small = run(["run", "--", process.execPath, "-e", "console.log('small')"], { env });
+    assert.equal(small.status, 0);
+    assert.equal(small.stdout, "small\n");
+    assert.match(small.stderr, /CR_STORE_FAILED/);
+
+    const blocked = run(
+      ["run", "--mode", "compress", "--", process.execPath, "-e", "console.log('api_key=abcdefghijklmnop123456')"],
+      { env },
+    );
+    assert.equal(blocked.status, 0);
+    assert.match(blocked.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!blocked.stdout.includes("abcdefghijklmnop123456"));
+    assert.ok(!blocked.stderr.includes("abcdefghijklmnop123456"));
   });
 
   it("redacts short labeled secret arguments and blocks labeled secret output", () => {
