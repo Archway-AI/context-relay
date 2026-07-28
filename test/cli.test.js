@@ -788,6 +788,212 @@ describe("context-relay CLI", () => {
     assert.ok(!disk.includes(body), "key body leaked to disk");
   });
 
+  // ---------------------------------------------------------------------------
+  // Round-5 regression guards.
+  // ---------------------------------------------------------------------------
+
+  // F1. `LABEL_NAME` opened with `(?:^|[^A-Za-z0-9_.-])`, which CONSUMED the delimiter
+  // in front of the label. A global replace resumes at `lastIndex`, so once a match had
+  // eaten the newline that ended its block, the next label had no delimiter left and
+  // `^` could not stand in (`gi`, never `m`). The second credential relayed whole, as
+  // residue that is not secret-shaped — it passed the storability gate and reached disk.
+  it("blocks both credentials when two block scalars are adjacent", async () => {
+    const first = "A1REAL" + "SECRETONE9";
+    const second = "B2REAL" + "SECRETTWO7";
+    const text = `password: |\n  ${first}\napi_key: |\n  ${second}\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    const disk = await storeDiskText();
+    for (const fixture of [first, second]) {
+      assert.ok(!result.stdout.includes(fixture), `leaked to stdout: ${fixture}`);
+      assert.ok(!result.stderr.includes(fixture), `leaked to stderr: ${fixture}`);
+      assert.ok(!disk.includes(fixture), `leaked to disk: ${fixture}`);
+    }
+  });
+
+  // The single-line form of the same adjacency. This one already worked before F1 and
+  // is here so the lookbehind rewrite cannot regress it.
+  it("blocks both credentials when two labeled assignments are adjacent", async () => {
+    const first = "AAAREAL" + "111222333";
+    const second = "BBBREAL" + "444555666";
+    const text = `password=${first}\napi_key=${second}\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    const disk = await storeDiskText();
+    for (const fixture of [first, second]) {
+      assert.ok(!result.stdout.includes(fixture), `leaked to stdout: ${fixture}`);
+      assert.ok(!disk.includes(fixture), `leaked to disk: ${fixture}`);
+    }
+  });
+
+  // F1, second consequence: the consumed delimiter was the newline ENDING the previous
+  // line, so span redaction merged that line into the placeholder and the line pass then
+  // destroyed both. The preceding line holds no secret and must survive as evidence.
+  it("preserves the line before a labeled secret", async () => {
+    const context = "keep this context line";
+    const secret = "abcdefghij" + "klmnop123456";
+    const text = `${context}\napi_key=${secret}\ntrailing context line\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(secret), "secret leaked to stdout");
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.ok(retrieve.stdout.includes(context), `collateral damage: ${retrieve.stdout}`);
+    assert.ok(retrieve.stdout.includes("trailing context line"), retrieve.stdout);
+    assert.ok(!retrieve.stdout.includes(secret), "secret leaked into the artifact");
+  });
+
+  // F2. YAML permits blank lines at the head of a block scalar, and the introducer
+  // branch went straight from `\r?\n` to `[ \t]+`, so the credential relayed in full.
+  for (const introducer of ["|", ">"]) {
+    it(`blocks a block scalar with a blank line after the introducer: ${introducer}`, async () => {
+      const secret = "hunter2" + "realvalue";
+      const text = `password: ${introducer}\n\n  ${secret}\n`;
+      const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /CR_BLOCK_SECRET/, `not blocked: ${introducer}`);
+      assert.ok(!result.stdout.includes(secret), `leaked to stdout: ${introducer}`);
+      const disk = await storeDiskText();
+      assert.ok(!disk.includes(secret), `leaked to disk: ${introducer}`);
+    });
+  }
+
+  // F2 boundary: the blank-line tolerance must not let an EMPTY block scalar reach
+  // across into the next unindented key.
+  it("does not extend an empty block scalar into the following key", async () => {
+    const { hasSecret, redactSecrets } = await import("../lib/policy.js");
+    const text = "password: |\n\nunindented: value\n";
+    assert.equal(hasSecret(text), false, "empty block scalar matched");
+    assert.equal(redactSecrets(text), text, "empty block scalar consumed the next key");
+  });
+
+  // F3/F4 relay guards, checked end to end alongside the round-3/4 masked values above.
+  const compactPlaceholderCases = [
+    { name: "compact json null", line: '{"password": null}' },
+    { name: "compact json access token null", line: '{"access_token": null}' },
+    { name: "compact json doc placeholder", line: '{"api_key": "<value>"}' },
+    { name: "bracket placeholder in a json array", line: '{"tokens": ["[FILTERED]"]}' },
+  ];
+
+  for (const testCase of compactPlaceholderCases) {
+    it(`relays compact placeholder literals instead of blocking: ${testCase.name}`, () => {
+      const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: `${testCase.line}\n` } });
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/, `blocked a non-secret: ${testCase.line}`);
+      assert.match(result.stdout, /CR compressed output/);
+
+      const retrieve = run(["retrieve", artifactId(result.stdout)]);
+      assert.equal(retrieve.status, 0);
+      assert.ok(retrieve.stdout.includes(testCase.line), `evidence destroyed: ${testCase.line}`);
+    });
+  }
+
+  // F4. A wrapper is only a documentation placeholder when its innards look like prose.
+  // 16+ characters carrying both a digit and a letter is a credential that happens to be
+  // wrapped, and exempting it relayed the credential in full.
+  it("narrows the wrapper-placeholder exemption to implausible innards", async () => {
+    const { hasSecret, REDACTION_PLACEHOLDER } = await import("../lib/policy.js");
+    const wrapped = "hunter2" + "realvalue123";
+    assert.equal(hasSecret(`api_key=<${wrapped}>`), true, "angle-wrapped credential exempted");
+    assert.equal(hasSecret(`api_key=[${wrapped}]`), true, "bracket-wrapped credential exempted");
+    // Real documentation placeholders stay exempt: short, or no digit, or both.
+    assert.equal(hasSecret("API_KEY=<your-api-key>"), false);
+    assert.equal(hasSecret("Using token: [FILTERED]"), false);
+    assert.equal(hasSecret("Authorization: Bearer <redacted>"), false);
+    // And the CI template alternative is deliberately untouched.
+    assert.equal(hasSecret("AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}"), false);
+    // THE TRAP: the module's own placeholder is a bracket wrapper. `REDACTED_SECRET` is
+    // 15 characters with no digit, so it stays under both thresholds. If the narrowing
+    // ever caught it, the storability gate would fail on every block and every blocked
+    // artifact would be destroyed instead of stored.
+    assert.equal(REDACTION_PLACEHOLDER, "[REDACTED_SECRET]");
+    assert.equal(hasSecret(REDACTION_PLACEHOLDER), false);
+    assert.equal(hasSecret(`token=${REDACTION_PLACEHOLDER}`), false);
+  });
+
+  it("blocks a wrapped credential end to end", async () => {
+    const wrapped = "hunter2" + "realvalue123";
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: `api_key=<${wrapped}>\n` } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(wrapped), "wrapped credential leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(wrapped), "wrapped credential leaked to disk");
+  });
+
+  // F5. Whole-line destruction only removes residue that lands on the matched line. A
+  // value can legitimately continue on the FOLLOWING lines, so the blocked path also
+  // destroys the lines that belong to a destroyed line. The two rules are indentation
+  // and shell continuation, and both must read the ORIGINAL line, not the redacted one.
+  it("destroys an orphaned indented body but keeps sibling keys", async () => {
+    const { redactSecretLines } = await import("../lib/policy.js");
+    const orphan = "ORPHANBODY" + "VALUE9";
+    const secret = "abcdefghij" + "123456";
+    const text = `database:\n  api_key: ${secret}\n    ${orphan}\n  host: example.com\nafter\n`;
+    const redacted = redactSecretLines(text);
+    assert.ok(!redacted.includes(orphan), `orphan survived: ${redacted}`);
+    assert.ok(!redacted.includes(secret), `secret survived: ${redacted}`);
+    // Precision: a sibling at equal indent is not part of the value.
+    assert.ok(redacted.includes("  host: example.com"), `sibling destroyed: ${redacted}`);
+    assert.ok(redacted.includes("after"), `unrelated line destroyed: ${redacted}`);
+    assert.ok(redacted.includes("database:"), `parent key destroyed: ${redacted}`);
+  });
+
+  it("keeps a sibling key when a same-line secret is destroyed", async () => {
+    const { redactSecretLines } = await import("../lib/policy.js");
+    const secret = "hunter2" + "realvalue";
+    const redacted = redactSecretLines(`database:\n  password: ${secret}\n  host: example.com\n`);
+    assert.ok(!redacted.includes(secret), redacted);
+    assert.ok(redacted.includes("  host: example.com"), `sibling destroyed: ${redacted}`);
+  });
+
+  it("leaves no residue below an orphaned indented body on disk", async () => {
+    const orphan = "ORPHANBODY" + "VALUE9";
+    const secret = "abcdefghij" + "123456";
+    const text = `database:\n  api_key: ${secret}\n    ${orphan}\n  host: example.com\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(orphan), "orphan leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(orphan), "orphan leaked to disk");
+    assert.ok(!disk.includes(secret), "secret leaked to disk");
+  });
+
+  // A blank line inside a block-scalar body ends the span pattern's trailing
+  // repetition, so everything after it is orphaned. A blank line must therefore NOT end
+  // the indentation cascade — it carries no content of its own and the block continues.
+  it("destroys a block body orphaned by a blank line inside it", async () => {
+    const first = "A1REAL" + "SECRETONE";
+    const second = "B2REAL" + "SECRETTWO";
+    const text = `password: |\n  ${first}\n\n  ${second}\nnext: value\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    const disk = await storeDiskText();
+    for (const fixture of [first, second]) {
+      assert.ok(!result.stdout.includes(fixture), `leaked to stdout: ${fixture}`);
+      assert.ok(!disk.includes(fixture), `leaked to disk: ${fixture}`);
+    }
+  });
+
+  it("leaves no residue on a backslash-continued credential", async () => {
+    const secret = "hunter2" + "value";
+    const residue = "MORERESIDUE" + "42";
+    const text = `PASSWORD=${secret}\\\n  ${residue}\nafter\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(residue), "continuation leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(residue), "continuation leaked to disk");
+    assert.ok(!disk.includes(secret), "secret leaked to disk");
+  });
+
   // Round-4 regression guard (C2). `redactSecretLines` ran the line pass BEFORE the
   // span pass, so a quoted value spanning a newline was sliced apart: the first line
   // was destroyed and the tail survived as residue that no longer matched anything.

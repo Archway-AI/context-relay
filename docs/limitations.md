@@ -74,14 +74,19 @@ fire on ordinary output:
   credentials, and are deliberately not blocked.
 - A bare `key=` or `auth:` label with no other credential keyword. Both are far
   too common in ordinary configuration and status output.
-- **A real value wrapped whole in placeholder punctuation.** The value guard
-  above is syntactic: `api_key=[value]`, `api_key=<value>` and
-  `api_key=${resolved}` are relayed even when the text inside the brackets is a
-  live credential rather than a documentation stand-in. The pre-change baseline
-  blocked these. Glued forms are still blocked — `token: <x>REALSECRET`,
-  `password=****hunter2real` and nested brackets all match — so the gap is
-  confined to a credential that is, character for character, indistinguishable
-  from a placeholder.
+- **A short, prose-shaped value wrapped whole in placeholder punctuation.** The
+  value guard above is syntactic, so `api_key=<value>` and `API_KEY=[FILTERED]`
+  are relayed. The wrapper exemption is narrowed by plausibility: innards of 16
+  or more characters containing both a digit and a letter are *not* exempt, so
+  `api_key=<hunter2realvalue123>` is blocked while `API_KEY=<your-api-key>` is
+  relayed. What remains uncovered is a credential that is short, or all letters,
+  or all digits, *and* wrapped whole — one that is character for character
+  indistinguishable from a documentation stand-in. Glued forms were always
+  blocked (`token: <x>REALSECRET`, `password=****hunter2real`).
+  `api_key=${resolved}` stays exempt with no plausibility test at all: a CI
+  template reference is a pointer to a credential, never a literal one. Measured
+  cost of the narrowing on this repository's own `git log --all --patch` (9,730
+  lines, 374,401 bytes): zero newly blocked lines.
 - **Plural label forms.** `api_keys: [...]`, `"passwords": [...]` and
   `secrets: [...]` are not blocked. The singular keyword must be a whole name
   part, and the trailing `s` prevents that. This matches the pre-change baseline;
@@ -110,6 +115,25 @@ longer looked like a secret, so it passed the gate and reached disk. Running onl
 the span pass would leave the tail of a value the pattern under-consumed, on its
 own line. Lines with no redaction on them are preserved, so the artifact stays
 useful as evidence.
+
+A fourth pass then destroys the lines that *belong* to a destroyed line, because
+a value can legitimately continue below its label: following lines indented
+strictly deeper than the destroyed line, up to the first line at equal or lower
+indent, and — cascading — the next line whenever the destroyed line ended with a
+shell continuation backslash. This is what makes an under-consuming pattern a
+loss of context rather than a leak: any orphaned continuation the span pass
+missed is destroyed on structure alone, without the detector having to recognise
+it. Sibling keys at the same indent are preserved, so `database:` / `password:` /
+`host:` still reads as evidence with only the credential line gone. Blank lines
+do not end the cascade, because a blank line inside a block-scalar body is what
+orphans the rest of that body in the first place.
+
+The cost is extra non-secret context destroyed inside blocked artifacts, which
+are already lossy by design. It is largest when the destroyed line sits at column
+zero and everything below it is indented — a `KEY=value` line above an indented
+report, for example, loses that whole indented region down to the next column-zero
+line. This pass is scoped to the blocked path and does not affect compression,
+retrieval of non-blocked artifacts, or the storability gate.
 
 The blocked envelope itself relays **no content** from the blocked output — only
 the command, exit code, line and token counts, and the artifact marker.

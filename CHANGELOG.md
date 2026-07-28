@@ -43,6 +43,27 @@
   stores nothing. Retrieval of a redacted artifact notes it on stderr.
 - Preserves the child process exit code when the local artifact store is
   unavailable, and reports the degradation once on stderr as `CR_STORE_FAILED`.
+- Matches a credential label without consuming the delimiter in front of it. The
+  previous form ate that character, so a global replace resuming immediately
+  after one match could not see the next label: two adjacent block scalars
+  redacted only the first and left the second credential on disk, and a match
+  that swallowed the preceding newline destroyed an innocent line above it.
+- Blocks a YAML block scalar whose body starts after a blank line
+  (`password: |` followed by an empty line). An empty block scalar still does not
+  reach across into the next unindented key.
+- Relays compact JSON placeholder literals such as `{"password": null}` and
+  `{"api_key": "<value>"}`. Only the spaced forms were exempt, so the compact
+  ones destroyed the whole output.
+- Narrows the wrapper-placeholder exemption: `<...>` and `[...]` innards of 16 or
+  more characters containing both a digit and a letter are no longer treated as
+  documentation stand-ins, so `api_key=<hunter2realvalue123>` is blocked while
+  `API_KEY=<your-api-key>` and `[FILTERED]` still relay. `${...}` template
+  references are unaffected.
+- Destroys orphaned continuation lines on the blocked path: lines indented
+  deeper than a destroyed line, and lines continued from it by a shell
+  backslash. Sibling keys at the same indent are preserved. This makes an
+  under-consuming pattern a loss of context rather than a leak of residue into a
+  stored artifact.
 
 ## 0.1.0
 
