@@ -51,6 +51,20 @@ function noisyNodeCommand(lines = 40) {
   ];
 }
 
+// Emits a fixture from the environment rather than from argv, so a leak assertion is
+// about the OUTPUT path only. A payload passed as `node -e "...<secret>..."` also lands
+// in the displayed `command:` line, whose escaping behaviour is a separate, pre-existing
+// parity issue with the baseline and would otherwise mask what these tests measure.
+const emitPayload = [
+  "run",
+  "--mode",
+  "compress",
+  "--",
+  process.execPath,
+  "-e",
+  "process.stdout.write(process.env.CR_TEST_PAYLOAD)",
+];
+
 function artifactId(output) {
   const match = output.match(/\[artifact:cr:(cr_[^ ]+)/);
   assert.ok(match, output);
@@ -620,6 +634,13 @@ describe("context-relay CLI", () => {
     { name: "empty env assignment list", line: "AWS_SECRET_ACCESS_KEY=, DB_PASSWORD=, GITHUB_TOKEN=," },
     { name: "quoted ellipsis", line: '"password": "..."' },
     { name: "prose after auth scheme", line: "and Authorization: Bearer are all detected, while" },
+    { name: "yaml null value", line: "password: null" },
+    // Round-4 parity shapes: tool output that names a credential without printing one.
+    { name: "terraform sensitive marker", line: "password = (sensitive value)" },
+    { name: "kubectl byte count", line: "password:  16 bytes" },
+    { name: "env presence marker", line: "AWS_SECRET_ACCESS_KEY=(set)" },
+    { name: "undefined value", line: "API_KEY=undefined" },
+    { name: "not applicable value", line: "client_secret: N/A" },
   ];
 
   for (const testCase of maskedValueCases) {
@@ -719,6 +740,105 @@ describe("context-relay CLI", () => {
       assert.ok(!disk.includes(testCase.secret), `secret leaked to disk: ${line}`);
     });
   }
+
+  // Round-4 regression guards (C1). The round-3 value-plausibility guard requires an
+  // alphanumeric in the value, and a YAML block-scalar introducer (`|`, `>`, `|-`) has
+  // none — so a credential written across the following indented lines relayed in full,
+  // where both the pre-change baseline and the round-2 commit blocked it. Block scalars
+  // are how multi-line secrets (SSH keys, certs, PEM bodies) are written in helm values,
+  // k8s manifests and workflow YAML, which is exactly the "browse CI configs" surface.
+  const continuationValueCases = [
+    { name: "literal block scalar", intro: "password: |" },
+    { name: "folded block scalar", intro: "password: >" },
+    { name: "strip-chomped block scalar", intro: "password: |-" },
+    { name: "indented block scalar", intro: "password: |2-" },
+    { name: "keep-chomped folded scalar", intro: "client-secret: >+" },
+    { name: "backslash continuation", intro: "PASSWORD=\\" },
+  ];
+
+  for (const testCase of continuationValueCases) {
+    it(`blocks credentials on a continuation line: ${testCase.name}`, async () => {
+      const secret = "hunter2" + "realvalue";
+      const text = `${testCase.intro}\n  ${secret}\n`;
+      const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /CR_BLOCK_SECRET/, `not blocked: ${testCase.intro}`);
+      assert.ok(!result.stdout.includes(secret), `secret leaked to stdout: ${testCase.intro}`);
+      assert.ok(!result.stderr.includes(secret), `secret leaked to stderr: ${testCase.intro}`);
+
+      const disk = await storeDiskText();
+      assert.ok(!disk.includes(secret), `secret leaked to disk: ${testCase.intro}`);
+    });
+  }
+
+  it("scrubs a PEM body carried inside a block scalar", async () => {
+    const body = "MIIEvQfakebody" + "PrivateKeyBytes";
+    const text = [
+      "tls.key: |",
+      "  -----BEGIN RSA PRIVATE KEY-----",
+      `  ${body}`,
+      "  -----END RSA PRIVATE KEY-----",
+      "",
+    ].join("\n");
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(body), "key body leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(body), "key body leaked to disk");
+  });
+
+  // Round-4 regression guard (C2). `redactSecretLines` ran the line pass BEFORE the
+  // span pass, so a quoted value spanning a newline was sliced apart: the first line
+  // was destroyed and the tail survived as residue that no longer matched anything.
+  // The gate (`!hasSecret(redactedText)`) then passed it, and the tail landed on disk
+  // inside an artifact stamped `redacted: true`.
+  it("leaves no tail residue when a quoted secret value spans lines", async () => {
+    const head = "topsecret" + "line1";
+    const tail = "TAILLINE2" + "continues";
+    const text = `before\npassword: "${head}\n${tail}"\nafter\n`;
+    const result = run(emitPayload, { env: { CR_TEST_PAYLOAD: text } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(head), "head leaked to stdout");
+    assert.ok(!result.stdout.includes(tail), "tail leaked to stdout");
+
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(head), "head leaked to disk");
+    assert.ok(!disk.includes(tail), "tail leaked to disk");
+  });
+
+  it("redaction ordering: the span pass runs before the line pass", async () => {
+    const { hasSecret, redactSecretLines } = await import("../lib/policy.js");
+    const head = "topsecret" + "line1";
+    const tail = "TAILLINE2" + "continues";
+    const multiLineQuoted = `before\npassword: "${head}\n${tail}"\nafter`;
+    const redacted = redactSecretLines(multiLineQuoted);
+    assert.ok(!redacted.includes(head), redacted);
+    assert.ok(!redacted.includes(tail), redacted);
+    assert.equal(hasSecret(redacted), false);
+
+    // The line pass must survive the reorder: an under-consumed span leaves residue on
+    // its own line, and destroying the whole line is what removes that class. Round 3
+    // got this from line-first ordering; it now comes from the placeholder predicate.
+    const unquoted = redactSecretLines("password=correct horse battery staple");
+    for (const word of ["correct", "horse", "battery", "staple"]) {
+      assert.ok(!unquoted.includes(word), `residue survived the reorder: ${word}`);
+    }
+  });
+
+  it("keeps digest values readable when they carry a short key prefix", async () => {
+    // `sha=<40 hex>` was destroyed because `=` is inside the opaque-token class, so the
+    // matched run was not pure hex. Over-redaction only ever hits blocked artifacts, but
+    // it costs the evidence the blocked path exists to preserve.
+    const { redactSecrets } = await import("../lib/policy.js");
+    const sha = "3f2b1c9d4e5a6b7c8d9e0f1a2b3c4d5e6f708192";
+    assert.equal(redactSecrets(`sha=${sha}`), `sha=${sha}`);
+    assert.equal(redactSecrets(`commit ${sha}`), `commit ${sha}`);
+    // A non-digest-length hex run is still scrubbed, prefix or not.
+    const hmac = "a3f1".repeat(12);
+    assert.ok(!redactSecrets(`sig=${hmac}`).includes(hmac));
+  });
 
   it("still blocks real-shaped values after the placeholder guard", async () => {
     // The B1 guard must cost zero detection coverage. A plausible 40-character value

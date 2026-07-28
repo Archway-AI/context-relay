@@ -20,6 +20,18 @@
   tail behind after redaction, and covers an opening quote with no closing quote
   (`api_key="hunter2...`). On the blocked path every matched line is destroyed,
   not only the matched span.
+- Blocks a credential whose value lives on the following line: YAML block
+  scalars (`password: |`, `client-secret: >`, `password: |-`, `password: |2-`)
+  and shell backslash continuations. The whole indented block is consumed, so
+  multi-line secrets in helm values, Kubernetes manifests and workflow YAML no
+  longer relay in full.
+- Fixes redaction ordering on the blocked path to PEM, then spans, then lines.
+  The line pass previously ran first and sliced a quoted value that spanned a
+  newline, letting its tail survive into a stored artifact marked as redacted.
+- Relays presence and size markers that tools print instead of a credential:
+  `(sensitive value)`, `16 bytes`, `(set)`, `undefined`, `unset`, `N/A`.
+- Keeps a digest readable when it carries a short non-credential prefix
+  (`sha=<40 hex>`), which the opaque-token pass previously destroyed.
 - Blocked envelopes relay no content from the blocked output — command, exit
   code, counts and the artifact marker only.
 - Exempts hex runs from generic redaction only at real digest lengths (32, 40,

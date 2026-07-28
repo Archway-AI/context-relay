@@ -30,6 +30,13 @@ well, and quoted values are consumed whole, so a multi-word passphrase leaves no
 tail behind. An opening quote with no closing quote — a truncated
 `api_key="hunter2...` line — is covered too.
 
+A label whose value lives on the **following** line is covered as well: YAML
+block scalars (`password: |`, `client-secret: >`, `password: |-`, `password: |2-`)
+and shell backslash continuations (`PASSWORD=\`). This is how multi-line secrets —
+SSH keys, certificates, PEM bodies — are written in helm values, Kubernetes
+manifests, docker-compose files and CI workflow YAML. The whole indented block is
+consumed, not just the introducer, so no part of the value survives redaction.
+
 A labeled assignment is blocked only when its **value could be a credential**.
 Values that are, by construction, not credentials are relayed:
 
@@ -38,6 +45,9 @@ Values that are, by construction, not credentials are relayed:
 - filtered-log markers and documentation placeholders: `[FILTERED]`,
   `<redacted>`, `<your-api-key>`
 - empty and literal values: `api_key=,`, `"password": "..."`, `password: null`
+- presence and size markers printed instead of a credential:
+  `password = (sensitive value)` (terraform), `password:  16 bytes` (kubectl),
+  `AWS_SECRET_ACCESS_KEY=(set)`, `API_KEY=undefined`, `client_secret: N/A`
 - an auth scheme word followed by prose rather than a token:
   `Authorization: Bearer are all detected`
 
@@ -64,6 +74,14 @@ fire on ordinary output:
   credentials, and are deliberately not blocked.
 - A bare `key=` or `auth:` label with no other credential keyword. Both are far
   too common in ordinary configuration and status output.
+- **A real value wrapped whole in placeholder punctuation.** The value guard
+  above is syntactic: `api_key=[value]`, `api_key=<value>` and
+  `api_key=${resolved}` are relayed even when the text inside the brackets is a
+  live credential rather than a documentation stand-in. The pre-change baseline
+  blocked these. Glued forms are still blocked — `token: <x>REALSECRET`,
+  `password=****hunter2real` and nested brackets all match — so the gap is
+  confined to a credential that is, character for character, indistinguishable
+  from a placeholder.
 - **Plural label forms.** `api_keys: [...]`, `"passwords": [...]` and
   `secrets: [...]` are not blocked. The singular keyword must be a whole name
   part, and the trailing `s` prevents that. This matches the pre-change baseline;
@@ -83,10 +101,14 @@ re-running detection over the redacted text finds nothing. That verification gat
 is what makes the stored copy safe; output that cannot pass it is dropped
 entirely, with reason code `CR_BLOCK_SECRET_UNSTORABLE`.
 
-On the blocked path, redaction destroys every *line* that matched, not just the
-matched span. A pattern that under-consumes a value would otherwise leave a
-residue that no longer looks like a secret, so it would pass the gate and be
-written to disk. Lines that did not match are preserved, so the artifact stays
+On the blocked path, redaction runs in a fixed order — PEM blocks, then spans,
+then lines — and destroys every *line* that ends up holding a redaction, not just
+the matched span. The order matters in both directions. Running the line pass
+first would slice a match that spans a newline: for a quoted value written across
+two lines the first line was destroyed and the tail survived as residue that no
+longer looked like a secret, so it passed the gate and reached disk. Running only
+the span pass would leave the tail of a value the pattern under-consumed, on its
+own line. Lines with no redaction on them are preserved, so the artifact stays
 useful as evidence.
 
 The blocked envelope itself relays **no content** from the blocked output — only
@@ -96,7 +118,8 @@ Retrieving the artifact is the single deliberate way to read the redacted text.
 Hex runs are exempt from generic redaction only at real digest lengths — exactly
 32, 40 or 64 characters (md5, SHA-1/git SHA, SHA-256). Hex secrets of other
 lengths, such as a 48-character HMAC signing key, are redacted rather than
-preserved.
+preserved. A digest carrying a short non-credential prefix (`sha=<40 hex>`) keeps
+the exemption; a credential-shaped prefix (`token=`, `sig=`, `hmac=`) does not.
 
 Explicit non-goal: bare unlabeled opaque strings are **not** blocked. Detection
 deliberately does not treat generic high-entropy tokens as secrets, because git
