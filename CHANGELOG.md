@@ -2,9 +2,22 @@
 
 ## Unreleased
 
-- Narrows secret detection to labeled assignments and known provider key shapes.
-  Generic high-entropy token matching is removed, so git SHAs, UUIDs, checksums,
-  and base64 blobs are no longer destroyed as false-positive secrets.
+- Retargets secret detection onto labeled assignments and known provider key
+  shapes. Generic high-entropy token matching is removed, so git SHAs, UUIDs,
+  checksums, and base64 blobs are no longer destroyed as false-positive secrets.
+- Matches a credential keyword as a whole name part of its label, so prefixed
+  environment-variable forms (`AWS_SECRET_ACCESS_KEY=`, `DB_PASSWORD=`,
+  `GITHUB_TOKEN=`, `STRIPE_SECRET_KEY=`), JSON credentials
+  (`"password": "..."`), and `Authorization: Bearer` headers are blocked.
+  Accounting labels such as `tokens=0` stay unblocked.
+- Consumes quoted values whole, so a multi-word passphrase no longer leaves its
+  tail behind after redaction. On the blocked path every matched line is
+  destroyed, not only the matched span.
+- Blocked envelopes relay no content from the blocked output — command, exit
+  code, counts and the artifact marker only.
+- Exempts hex runs from generic redaction only at real digest lengths (32, 40,
+  64), so hex secrets of other lengths, such as a 48-character HMAC signing key,
+  are redacted instead of preserved.
 - Blocked output now stores a verified-redacted, retrievable artifact instead of
   being discarded. Storage happens only when re-detection on the redacted text
   finds nothing; otherwise the run reports `CR_BLOCK_SECRET_UNSTORABLE` and

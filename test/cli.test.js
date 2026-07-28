@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -55,6 +55,34 @@ function artifactId(output) {
   const match = output.match(/\[artifact:cr:(cr_[^ ]+)/);
   assert.ok(match, output);
   return match[1];
+}
+
+// Everything the local store holds on disk, with artifact bodies decoded. `raw_base64`
+// means a plain substring search over the files would miss a leaked secret entirely.
+async function storeDiskText() {
+  const parts = [];
+  const walk = async (dir) => {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full);
+        continue;
+      }
+      const text = await readFile(full, "utf8");
+      parts.push(text);
+      for (const match of text.matchAll(/"raw_base64":\s*"([^"]*)"/g)) {
+        parts.push(Buffer.from(match[1], "base64").toString("utf8"));
+      }
+    }
+  };
+  await walk(storeDir);
+  return parts.join("\n");
 }
 
 async function makeTempGitRepo(remote = "git@github.com:Example-Org/example-repo.git") {
@@ -393,6 +421,155 @@ describe("context-relay CLI", () => {
       assert.equal(metadata.content.redacted, true, fixture);
       assert.equal(metadata.policy.redaction_policy, "standard-secret-redaction", fixture);
     }
+  });
+
+  // Round-2 regression guards. The round-1 pattern set missed every shape below:
+  // `\bsecret\b` cannot match inside AWS_SECRET_ACCESS_KEY because `_` is a word
+  // character, and `\s*[:=]` cannot cross the closing quote in `"password": "..."`.
+  // A suite that only ever tested a bare `api_key=` label proved nothing about these.
+  const labeledSecretCases = [
+    { name: "AWS_SECRET_ACCESS_KEY", secret: "wJalrXUtnFEMI" + "K7MDENGbPxRfiCYEXAMPLEKEY", line: (s) => `AWS_SECRET_ACCESS_KEY=${s}` },
+    { name: "DB_PASSWORD", secret: "hunter2" + "hunter2hunter2hunter2", line: (s) => `DB_PASSWORD=${s}` },
+    { name: "GITHUB_TOKEN", secret: "abcdef1234" + "567890abcdefFEDCBA", line: (s) => `GITHUB_TOKEN=${s}` },
+    { name: "STRIPE_SECRET_KEY", secret: "rk_liv" + "e_XyZ123abc456QQ", line: (s) => `STRIPE_SECRET_KEY=${s}` },
+    { name: "json password", secret: "correcthorse" + "batterystaple99", line: (s) => `{"password": "${s}"}` },
+    { name: "authorization bearer", secret: "ya29.AbCdEf" + "123456789xyzQRS", line: (s) => `Authorization: Bearer ${s}` },
+  ];
+
+  for (const testCase of labeledSecretCases) {
+    it(`blocks and redacts labeled secrets: ${testCase.name}`, async () => {
+      const line = testCase.line(testCase.secret);
+      const result = run([
+        "run",
+        "--mode",
+        "compress",
+        "--",
+        process.execPath,
+        "-e",
+        `console.log(${JSON.stringify(line)})`,
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /CR_BLOCK_SECRET/, `not blocked: ${line}`);
+      assert.ok(!result.stdout.includes(testCase.secret), `secret leaked to stdout: ${line}`);
+      assert.ok(!result.stderr.includes(testCase.secret), `secret leaked to stderr: ${line}`);
+
+      const disk = await storeDiskText();
+      assert.ok(!disk.includes(testCase.secret), `secret leaked to disk: ${line}`);
+    });
+  }
+
+  it("fully redacts quoted multi-word secret values", async () => {
+    const passphrase = "correct horse " + "battery staple";
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `console.log("password='" + ${JSON.stringify(passphrase)} + "'")`,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    // The round-1 value capture stopped at the first space, leaving
+    // "[REDACTED_SECRET] horse battery staple'" as residue on stdout and on disk.
+    for (const word of ["correct", "horse", "battery", "staple"]) {
+      assert.ok(!result.stdout.includes(word), `passphrase residue on stdout: ${word}`);
+    }
+    const disk = await storeDiskText();
+    for (const word of ["correct", "horse", "battery", "staple"]) {
+      assert.ok(!disk.includes(word), `passphrase residue on disk: ${word}`);
+    }
+  });
+
+  it("redacts non-digest hex secrets in the stored artifact", async () => {
+    // 48 hex chars: not an md5/sha1/sha256 digest length, so nothing legitimate
+    // depends on it surviving. Round 1 exempted any hex run of 32+ chars.
+    const hmac = "a3f1".repeat(12);
+    assert.equal(hmac.length, 48);
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `console.log("JWT_SIGNING_SECRET=" + ${JSON.stringify(hmac)})`,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(hmac), "hex secret leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(hmac), "hex secret leaked to disk");
+  });
+
+  it("redacts hex-shaped secrets passed as command arguments", async () => {
+    const hmac = "b7e2".repeat(12);
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      ...noisyNodeCommand(),
+      "--",
+      "--payload",
+      hmac,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.ok(!result.stdout.includes(hmac), "hex arg leaked into the envelope command line");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(hmac), "hex arg leaked into events.jsonl or artifact source.command");
+  });
+
+  it("keeps 40-hex git shas intact in displayed commands", () => {
+    const sha = "3f2b1c9d4e5a6b7c8d9e0f1a2b3c4d5e6f708192";
+    assert.equal(sha.length, 40);
+    const result = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(), "--", "show", sha]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, new RegExp(sha), "git sha was mangled in the displayed command");
+  });
+
+  it("blocked envelopes relay no content from the blocked output", () => {
+    // The canary is assembled inside the child so it never appears in the command
+    // text. The envelope's `command:` line legitimately echoes the command (existing
+    // tests depend on that); what must not cross is a line of the child's *output*.
+    const marker = "CANARYLINEUNIQUE42";
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `console.log(String.fromCharCode(67,65,78,65,82,89) + "LINE" + "UNIQUE" + 42); console.log("api_key=" + "abcdefghijklmnop123456")`,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    // Round 1 added summarize() highlights to the blocked envelope, so lines from
+    // blocked output reached agent context. Only counts and the marker may cross.
+    assert.ok(!result.stdout.includes(marker), "blocked envelope relayed a content line");
+    assert.doesNotMatch(result.stdout, /^highlights:/m);
+    assert.match(result.stdout, /raw_lines: \d+/);
+  });
+
+  it("anchors prefixed key shapes inside longer tokens", async () => {
+    const { hasSecret } = await import("../lib/policy.js");
+    assert.equal(hasSecret("payload QUJD" + "ghp_" + "A".repeat(36)), true, "ghp_ embedded in a longer token");
+    assert.equal(hasSecret("key=AKIA" + "IOSFODNN7EXAMPLE" + "XY"), true, "AWS key with trailing alnum");
+    assert.equal(hasSecret("blob" + "glpat-" + "A1b2C3d4E5f6G7h8I9j0"), true, "glpat- embedded");
+  });
+
+  it("placeholder invariant: the redaction placeholder never re-triggers detection", async () => {
+    const { hasSecret, REDACTION_PLACEHOLDER } = await import("../lib/policy.js");
+    // The guard is the closing `]`, not the underscore: no label pattern can cross a
+    // bracket to reach the `:`/`=` it needs. A rename to a bracketless token would
+    // make the placeholder self-detecting and fail the storability gate on every
+    // block. This test exists so that rename is caught.
+    assert.equal(hasSecret(REDACTION_PLACEHOLDER), false);
+    assert.equal(hasSecret(`${REDACTION_PLACEHOLDER}=value`), false);
+    assert.equal(hasSecret(`${REDACTION_PLACEHOLDER}: value`), false);
+    assert.equal(hasSecret(`token=${REDACTION_PLACEHOLDER}`), true);
   });
 
   it("redaction invariant: redacted text never re-triggers detection", async () => {
