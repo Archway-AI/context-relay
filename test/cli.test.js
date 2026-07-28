@@ -569,7 +569,14 @@ describe("context-relay CLI", () => {
     assert.equal(hasSecret(REDACTION_PLACEHOLDER), false);
     assert.equal(hasSecret(`${REDACTION_PLACEHOLDER}=value`), false);
     assert.equal(hasSecret(`${REDACTION_PLACEHOLDER}: value`), false);
-    assert.equal(hasSecret(`token=${REDACTION_PLACEHOLDER}`), true);
+    // A label still detects a real value...
+    assert.equal(hasSecret("token=abcdefghijklmnop123456"), true);
+    // ...but a value that IS the placeholder is already redacted, and round 3's
+    // bracketed-placeholder exemption (`[FILTERED]`-style) covers it by construction.
+    // This assertion was `true` in round 2; the flip is deliberate and harmless,
+    // because the storability gate only ever sees whole matches replaced by the
+    // placeholder, never a label left standing in front of one.
+    assert.equal(hasSecret(`token=${REDACTION_PLACEHOLDER}`), false);
   });
 
   it("redaction invariant: redacted text never re-triggers detection", async () => {
@@ -595,6 +602,156 @@ describe("context-relay CLI", () => {
     for (const line of safe) {
       assert.equal(hasSecret(line), false, `false positive for ${line.slice(0, 24)}`);
     }
+  });
+
+  // Round-3 regression guards (B1). Widening the label pattern in round 2 made it
+  // fire on values that are demonstrably not credentials: CI template references,
+  // masks, filtered-log markers and documentation placeholders. Each of these was
+  // relayed by the pre-change baseline and destroyed by the round-2 pattern.
+  const maskedValueCases = [
+    { name: "github actions secrets template", line: "AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
+    { name: "asterisk mask", line: "password=********" },
+    { name: "rails filtered log", line: "Using token: [FILTERED]" },
+    { name: "doc placeholder bearer", line: "Authorization: Bearer <redacted>" },
+    { name: "helm empty value", line: 'password: ""' },
+    { name: "readme placeholder", line: "API_KEY=<your-api-key>" },
+    // The shapes that made `git log` in this repo block on itself: a label with an
+    // empty value, a quoted ellipsis, and an auth scheme word followed by prose.
+    { name: "empty env assignment list", line: "AWS_SECRET_ACCESS_KEY=, DB_PASSWORD=, GITHUB_TOKEN=," },
+    { name: "quoted ellipsis", line: '"password": "..."' },
+    { name: "prose after auth scheme", line: "and Authorization: Bearer are all detected, while" },
+  ];
+
+  for (const testCase of maskedValueCases) {
+    it(`relays masked and placeholder values instead of blocking: ${testCase.name}`, () => {
+      const result = run([
+        "run",
+        "--mode",
+        "compress",
+        "--",
+        process.execPath,
+        "-e",
+        `console.log(${JSON.stringify(testCase.line)})`,
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/, `blocked a non-secret: ${testCase.line}`);
+      assert.match(result.stdout, /CR compressed output/);
+
+      const retrieve = run(["retrieve", artifactId(result.stdout)]);
+      assert.equal(retrieve.status, 0);
+      assert.ok(retrieve.stdout.includes(testCase.line), `evidence destroyed: ${testCase.line}`);
+    });
+  }
+
+  it("relays git log whose commit messages describe secret label shapes", async () => {
+    // The canonical failure. This repo's own changelog documents the label shapes the
+    // detector looks for, so a pattern that matches its own description of itself
+    // destroys `git log` in the very repo that ships it. Round 1 did this via the
+    // entropy rule; round 2 did it via the label rule.
+    const repoDir = await makeTempGitRepo();
+    const message = [
+      "fix: close the labeled-secret detection regression from round 1",
+      "",
+      "F1/F2 Match a credential keyword as a whole *name part* of its label, so",
+      "  AWS_SECRET_ACCESS_KEY=, DB_PASSWORD=, GITHUB_TOKEN=, STRIPE_SECRET_KEY=,",
+      '  "password": "...", and Authorization: Bearer are all detected, while',
+      "  accounting labels (tokens=0, raw_estimated_tokens: 5231) stay unblocked.",
+    ].join("\n");
+    // Three commits so `--mode auto` lands on the same compressing branch that the
+    // real `git log -5` takes; the failure being pinned is the block, not the mode.
+    for (let i = 0; i < 3; i++) {
+      const commit = spawnSync(
+        "git",
+        [
+          "-c",
+          "user.name=CR Test",
+          "-c",
+          "user.email=cr-test@invalid.local",
+          "-c",
+          "commit.gpgsign=false",
+          "-c",
+          "core.hooksPath=/dev/null",
+          "commit",
+          "--allow-empty",
+          "-m",
+          message,
+        ],
+        { cwd: repoDir, encoding: "utf8" },
+      );
+      assert.equal(commit.status, 0, commit.stderr);
+    }
+
+    const result = run(["run", "--mode", "auto", "--", "git", "log", "-5"], { cwd: repoDir });
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /CR_BLOCK_SECRET/, result.stdout);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)], { cwd: repoDir });
+    assert.equal(retrieve.status, 0);
+    assert.match(retrieve.stdout, /commit [0-9a-f]{40}/, "40-hex sha not retrievable");
+  });
+
+  // Round-3 regression guards (B2). The round-2 value alternation required a closing
+  // quote and the catch-all could not start at a quote character, so an unterminated
+  // quote was the single shape where this branch was weaker than the baseline.
+  const unterminatedQuoteCases = [
+    { name: "double quote", secret: "hunter2abc" + "defghijkl", line: (s) => `api_key="${s}` },
+    { name: "single quote", secret: "hunter2abc" + "defghijkl", line: (s) => `PASSWORD='${s}` },
+  ];
+
+  for (const testCase of unterminatedQuoteCases) {
+    it(`blocks labeled secrets with an unterminated ${testCase.name}`, async () => {
+      const line = testCase.line(testCase.secret);
+      const result = run([
+        "run",
+        "--mode",
+        "compress",
+        "--",
+        process.execPath,
+        "-e",
+        `console.log(${JSON.stringify(line)})`,
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /CR_BLOCK_SECRET/, `not blocked: ${line}`);
+      assert.ok(!result.stdout.includes(testCase.secret), `secret leaked to stdout: ${line}`);
+      assert.ok(!result.stderr.includes(testCase.secret), `secret leaked to stderr: ${line}`);
+
+      const disk = await storeDiskText();
+      assert.ok(!disk.includes(testCase.secret), `secret leaked to disk: ${line}`);
+    });
+  }
+
+  it("still blocks real-shaped values after the placeholder guard", async () => {
+    // The B1 guard must cost zero detection coverage. A plausible 40-character value
+    // on the same labels that carry the placeholders above must still block.
+    const { hasSecret } = await import("../lib/policy.js");
+    const secret = "wJalrXUtnFEMI" + "K7MDENGbPxRfiCYEXAMPLEKEY01";
+    assert.equal(secret.length, 40);
+    for (const line of [
+      `AWS_SECRET_ACCESS_KEY=${secret}`,
+      `AWS_SECRET_ACCESS_KEY: ${secret}`,
+      `password=${secret}`,
+      `Using token: ${secret}`,
+      `Authorization: Bearer ${secret}`,
+      `API_KEY=${secret}`,
+      `password: "${secret}"`,
+    ]) {
+      assert.equal(hasSecret(line), true, `guard over-exempted a real value: ${line}`);
+    }
+
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `console.log("AWS_SECRET_ACCESS_KEY=" + ${JSON.stringify(secret)})`,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR_BLOCK_SECRET/);
+    assert.ok(!result.stdout.includes(secret), "secret leaked to stdout");
+    const disk = await storeDiskText();
+    assert.ok(!disk.includes(secret), "secret leaked to disk");
   });
 
   it("preserves child exit code and warns when the store is unavailable", async () => {

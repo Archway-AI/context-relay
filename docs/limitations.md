@@ -27,7 +27,28 @@ keywords are `api_key`/`apikey`, `access_key`, `private_key`, `secret`, `token`,
 any case, joined by `_`, `-` or `.`. JSON and quoted forms
 (`"password": "..."`) and `Authorization: Bearer <token>` headers are covered as
 well, and quoted values are consumed whole, so a multi-word passphrase leaves no
-tail behind.
+tail behind. An opening quote with no closing quote — a truncated
+`api_key="hunter2...` line — is covered too.
+
+A labeled assignment is blocked only when its **value could be a credential**.
+Values that are, by construction, not credentials are relayed:
+
+- CI template references: `${VAR}`, `${{ secrets.MY_KEY }}`
+- masks: `password=********`, `password: ""`
+- filtered-log markers and documentation placeholders: `[FILTERED]`,
+  `<redacted>`, `<your-api-key>`
+- empty and literal values: `api_key=,`, `"password": "..."`, `password: null`
+- an auth scheme word followed by prose rather than a token:
+  `Authorization: Bearer are all detected`
+
+Blocking these is not a harmless over-reaction — it destroys the whole command's
+output. It also makes the tool block on documentation *about* itself: this
+repository's own commit messages name the label shapes above, so an unguarded
+pattern turns `git log` in this repository into `CR_BLOCK_SECRET`. The guard
+requires a value to contain at least one alphanumeric character and to be
+something other than a placeholder in its entirety, which costs no coverage —
+`token: <x>REALSECRETVALUE` is still blocked, and so is every real-shaped value
+on every label listed above.
 
 Known provider key shapes are also blocked: `sk-...`, Stripe
 `sk_live_`/`sk_test_`, GitHub `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_` and
@@ -43,6 +64,13 @@ fire on ordinary output:
   credentials, and are deliberately not blocked.
 - A bare `key=` or `auth:` label with no other credential keyword. Both are far
   too common in ordinary configuration and status output.
+- **Plural label forms.** `api_keys: [...]`, `"passwords": [...]` and
+  `secrets: [...]` are not blocked. The singular keyword must be a whole name
+  part, and the trailing `s` prevents that. This matches the pre-change baseline;
+  it is named here rather than fixed, because the plural forms in practice carry
+  list values (`[...]`), which the value guard above already treats as a
+  placeholder, so adding them to the keyword list would not block the shapes that
+  motivate it.
 - An `sk-` key glued to the tail of a longer word (`...disk-<20 chars>`). The
   leading word boundary is kept on this one shape, because `sk-` is a
   three-character low-entropy prefix and dropping it would turn ordinary

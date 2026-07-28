@@ -10,9 +10,16 @@
   `GITHUB_TOKEN=`, `STRIPE_SECRET_KEY=`), JSON credentials
   (`"password": "..."`), and `Authorization: Bearer` headers are blocked.
   Accounting labels such as `tokens=0` stay unblocked.
+- Blocks a labeled assignment only when its value could be a credential. Masked,
+  empty, templated and placeholder values (`password=********`, `password: ""`,
+  `${{ secrets.X }}`, `[FILTERED]`, `<redacted>`, `<your-api-key>`,
+  `password: null`, `api_key=,`) are relayed instead of destroying the whole
+  command output — including `git log` in this repository, whose own commit
+  messages describe the label shapes being detected.
 - Consumes quoted values whole, so a multi-word passphrase no longer leaves its
-  tail behind after redaction. On the blocked path every matched line is
-  destroyed, not only the matched span.
+  tail behind after redaction, and covers an opening quote with no closing quote
+  (`api_key="hunter2...`). On the blocked path every matched line is destroyed,
+  not only the matched span.
 - Blocked envelopes relay no content from the blocked output — command, exit
   code, counts and the artifact marker only.
 - Exempts hex runs from generic redaction only at real digest lengths (32, 40,
