@@ -61,9 +61,12 @@
   references are unaffected.
 - Destroys orphaned continuation lines on the blocked path: lines indented
   deeper than a destroyed line, and lines continued from it by a shell
-  backslash. Sibling keys at the same indent are preserved. This makes an
-  under-consuming pattern a loss of context rather than a leak of residue into a
-  stored artifact.
+  backslash. Sibling keys at the same indent are preserved. Where a value
+  continues by indentation or a backslash, this makes an under-consuming pattern
+  a loss of context rather than a leak of residue into a stored artifact. It does
+  not cover a value continued by a delimiter the indent rule cannot see — a
+  heredoc body sits at equal indent and still reaches the artifact, on this and
+  every prior version. See `docs/limitations.md`.
 
 ## 0.1.0
 
