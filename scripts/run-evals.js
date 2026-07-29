@@ -154,6 +154,31 @@ function range(values) {
   };
 }
 
+// A case passes when every assertion recorded for it holds. Compression cases
+// and the secret-block case assert different things, so the shape decides.
+function casePassed(entry) {
+  if ("exact_retrieval" in entry) {
+    return entry.exact_retrieval && entry.exit_code_preserved && entry.targeted_retrieval_passed;
+  }
+  // `artifact_created` is asserted TRUE here, not false. This assertion was written
+  // against the pre-D1 contract, where a blocked run stored nothing at all —
+  // preserving retrievable evidence on the blocked path is the entire point of that
+  // change, so a blocked run that stores no artifact is now a failure rather than the
+  // expected result. The stored copy must also survive re-detection, which is the
+  // storability gate itself.
+  return (
+    entry.blocked &&
+    entry.artifact_created &&
+    entry.secret_absent_from_output &&
+    entry.redacted_artifact_clean
+  );
+}
+
+// Ratio rounded to three decimals; an empty case list reports 0 instead of NaN.
+function passRate(passed, total) {
+  return total > 0 ? Number((passed / total).toFixed(3)) : 0;
+}
+
 const evaluated = [];
 
 for (const testCase of cases) {
@@ -211,10 +236,13 @@ evaluated.push({
   ),
 });
 
+for (const entry of evaluated) {
+  entry.case_passed = casePassed(entry);
+}
+
+const passedCases = evaluated.filter((entry) => entry.case_passed).length;
 const compressionCases = evaluated.filter((entry) => "exact_retrieval" in entry);
-const accuracyGatePassed = compressionCases.every(
-  (entry) => entry.exact_retrieval && entry.exit_code_preserved && entry.targeted_retrieval_passed,
-);
+const accuracyGatePassed = compressionCases.every((entry) => entry.case_passed);
 const report = {
   generated_at: new Date().toISOString(),
   node: process.version,
@@ -225,15 +253,22 @@ const report = {
     exit_code_preserved_passed: compressionCases.filter((entry) => entry.exit_code_preserved).length,
     targeted_retrieval_passed: compressionCases.filter((entry) => entry.targeted_retrieval_passed).length,
     accuracy_gate_passed: accuracyGatePassed,
+    eval_cases: evaluated.length,
+    eval_cases_passed: passedCases,
+    eval_pass_rate: passRate(passedCases, evaluated.length),
     summary_only_reduction_percent_range: range(
       compressionCases.map((entry) => entry.reduction_before_retrieval_percent),
     ),
     after_targeted_retrieval_reduction_percent_range: range(
       compressionCases.map((entry) => entry.reduction_after_targeted_retrieval_percent),
     ),
+    // main's generic case_passed AND the D1-specific assertions this branch added.
+    // case_passed alone would not notice the artifact missing, the secret leaking into
+    // stdout, or the stored redacted copy still holding a credential.
     secret_block_passed: evaluated.some(
       (entry) =>
         entry.id === "secret-block" &&
+        entry.case_passed &&
         entry.blocked &&
         entry.artifact_created &&
         entry.secret_absent_from_output &&

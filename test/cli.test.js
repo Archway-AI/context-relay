@@ -99,11 +99,39 @@ async function storeDiskText() {
   return parts.join("\n");
 }
 
+async function makeTempDir(prefix) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+
+// Keep git away from real user and system configuration so summaries of
+// `git status` output do not depend on the machine running the tests.
+const isolatedGitEnv = { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+
+// Prefer ripgrep, fall back to grep, and let the caller skip when neither exists.
+function searchExecutable() {
+  for (const candidate of ["rg", "grep"]) {
+    const probe = spawnSync(candidate, ["--version"], { encoding: "utf8" });
+    if (!probe.error && probe.status === 0) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function searchArgs(executable) {
+  return executable === "rg" ? ["--no-heading", "--line-number", "--no-ignore", "TODO", "."] : ["-rn", "TODO", "."];
+}
+
+function git(args, cwd) {
+  return spawnSync("git", args, { cwd, env: { ...process.env, ...isolatedGitEnv }, encoding: "utf8" });
+}
+
 async function makeTempGitRepo(remote = "git@github.com:Example-Org/example-repo.git") {
-  const repoDir = await mkdtemp(path.join(os.tmpdir(), "context-relay-repo-"));
-  tempDirs.push(repoDir);
-  spawnSync("git", ["init"], { cwd: repoDir, encoding: "utf8" });
-  spawnSync("git", ["remote", "add", "origin", remote], { cwd: repoDir, encoding: "utf8" });
+  const repoDir = await makeTempDir("context-relay-repo-");
+  git(["init"], repoDir);
+  git(["remote", "add", "origin", remote], repoDir);
   return repoDir;
 }
 
@@ -179,6 +207,77 @@ describe("context-relay CLI", () => {
     assert.match(result.stdout, /items: array\(20\)/);
     assert.match(result.stdout, /status_counts: warning=4, ok=16/);
     assert.match(result.stdout, /file0\.js/);
+  });
+
+  it("summarizes search output with per-file match counts", async (t) => {
+    const executable = searchExecutable();
+    if (!executable) {
+      t.skip("neither rg nor grep is available on this machine");
+      return;
+    }
+    const searchDir = await makeTempDir("context-relay-search-");
+    for (const name of ["alpha.ts", "beta.ts", "gamma.ts"]) {
+      await writeFile(
+        path.join(searchDir, name),
+        [1, 2, 3, 4].map((index) => `TODO item ${index} in ${name}`).join("\n").concat("\n"),
+      );
+    }
+
+    const result = run(["run", "--mode", "compress", "--", executable, ...searchArgs(executable)], {
+      cwd: searchDir,
+      env: { RIPGREP_CONFIG_PATH: "" },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.match(result.stdout, /search_matches: 12/);
+    assert.match(result.stdout, /files_with_matches: 3/);
+    assert.match(result.stdout, /alpha\.ts: 4 matches \(1:TODO item 1 in alpha\.ts;/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout), "--grep", "TODO item 4"], { cwd: searchDir });
+    assert.equal(retrieve.status, 0);
+    assert.match(retrieve.stdout, /TODO item 4 in gamma\.ts/);
+  });
+
+  it("summarizes git status output with status code counts", async () => {
+    const repoDir = await makeTempGitRepo();
+    await writeFile(path.join(repoDir, "staged.ts"), "export const staged = 1;\n");
+    git(["add", "staged.ts"], repoDir);
+    await writeFile(path.join(repoDir, "untracked.ts"), "export const untracked = 2;\n");
+
+    const result = run(["run", "--mode", "compress", "--", "git", "status", "--short"], {
+      cwd: repoDir,
+      env: isolatedGitEnv,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /CR compressed output/);
+    assert.match(result.stdout, /git_status_paths: 2/);
+    assert.match(result.stdout, /status_counts: .*"A "=1/);
+    assert.match(result.stdout, /status_counts: .*"\?\?"=1/);
+    assert.match(result.stdout, /- A {2}staged\.ts/);
+    assert.match(result.stdout, /- \?\? untracked\.ts/);
+  });
+
+  it("summarizes the shipped JSON tool fixture", async () => {
+    const fixturePath = path.join(packageRoot, "fixtures", "tool-output.json");
+    const fixture = JSON.parse(await readFile(fixturePath, "utf8"));
+    const result = run([
+      "run",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      "process.stdout.write(require('node:fs').readFileSync(process.argv[1], 'utf8'))",
+      fixturePath,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /json_root: object\(1 keys\)/);
+    assert.match(result.stdout, new RegExp(`items: array\\(${fixture.items.length}\\)`));
+    assert.match(result.stdout, /status_counts: ok=2, warning=1/);
+
+    const retrieve = run(["retrieve", artifactId(result.stdout)]);
+    assert.equal(retrieve.status, 0);
+    assert.equal(retrieve.stdout, await readFile(fixturePath, "utf8"));
   });
 
   it("supports range and grep retrieval", () => {
@@ -1196,6 +1295,55 @@ describe("context-relay CLI", () => {
     assert.ok(stats.net_saved_bytes >= 0);
     assert.ok(stats.gross_efficiency_percent > 0);
     assert.ok((await readFile(path.join(storeDir, "events.jsonl"), "utf8")).includes("compressed"));
+  });
+
+  it("reports rate metrics without dividing by zero runs", () => {
+    const result = run(["stats"]);
+    assert.equal(result.status, 0);
+    const stats = JSON.parse(result.stdout);
+    assert.equal(stats.runs, 0);
+    assert.equal(stats.retrieval_rate, 0);
+    assert.equal(stats.blocked_rate, 0);
+    assert.equal(stats.fallback_rate, 0);
+    assert.equal(stats.compression_savings_pct, 0);
+  });
+
+  it("reports retrieval, blocked, and compression savings metrics", () => {
+    run(["run", "--", process.execPath, "-e", "console.log('small')"]);
+    const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(120)]);
+    run(["run", "--mode", "compress", "--", process.execPath, "-e", "console.log('api_key=abcdefghijklmnop123456')"]);
+    run(["retrieve", artifactId(compressed.stdout), "--grep", "TODO item 7"]);
+
+    const stats = JSON.parse(run(["stats"]).stdout);
+    assert.equal(stats.runs, 3);
+    assert.equal(stats.blocked, 1);
+    assert.equal(stats.retrieval_rate, 0.333);
+    assert.equal(stats.blocked_rate, 0.333);
+    assert.equal(stats.fallback_rate, 0);
+    assert.equal(stats.compression_savings_pct, stats.gross_efficiency_percent);
+    assert.ok(stats.compression_savings_pct > 0);
+
+    const gain = run(["gain"]);
+    assert.equal(gain.status, 0, gain.stderr);
+    assert.match(gain.stdout, /compression savings: [\d.]+% \(alias of gross efficiency\)/);
+    assert.match(gain.stdout, /rates per run: retrieval 0\.333, blocked 0\.333, fallback 0/);
+  });
+
+  it("counts store failures as fallbacks", async () => {
+    // A file where the artifacts directory belongs makes store.put fail, which
+    // is the CR_STORE_FAILED passthrough that fallback_rate measures.
+    await writeFile(path.join(storeDir, "artifacts"), "not a directory\n");
+
+    const result = run(["run", "--mode", "compress", "--", ...noisyNodeCommand(40)]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /artifact:cr:/);
+    assert.match(result.stdout, /file40\.ts:40:TODO item 40/);
+
+    const stats = JSON.parse(run(["stats"]).stdout);
+    assert.equal(stats.runs, 1);
+    assert.equal(stats.passthrough, 1);
+    assert.equal(stats.fallbacks, 1);
+    assert.equal(stats.fallback_rate, 1);
   });
 
   it("reports gain and discovers local setup and reducer opportunities", async () => {

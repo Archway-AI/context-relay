@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Adds `compression_savings_pct`, `retrieval_rate`, `blocked_rate`, and
+  `fallback_rate` to `stats` and `gain`.
+- Adds `eval_pass_rate` and per-case `case_passed` to the fixture eval report.
+- Adds CLI coverage for search and `git status` summaries and for the shipped
+  JSON tool fixture.
+- Documents every reported metric and records `cache_savings` as descoped.
 - Retargets secret detection onto labeled assignments and known provider key
   shapes. Generic high-entropy token matching is removed, so git SHAs, UUIDs,
   checksums, and base64 blobs are no longer destroyed as false-positive secrets.

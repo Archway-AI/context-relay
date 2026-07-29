@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T21:19:18.238Z",
+  "generated_at": "2026-07-29T00:43:51.099Z",
   "node": "v22.22.3",
   "note": "Deterministic fixture evals. These are not broad task-accuracy benchmarks.",
   "summary": {
@@ -8,6 +8,9 @@
     "exit_code_preserved_passed": 8,
     "targeted_retrieval_passed": 8,
     "accuracy_gate_passed": true,
+    "eval_cases": 9,
+    "eval_cases_passed": 9,
+    "eval_pass_rate": 1,
     "summary_only_reduction_percent_range": {
       "min": 36.6,
       "max": 97.1
@@ -38,7 +41,8 @@
       "reduction_after_targeted_retrieval_percent": 27.3,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "search-style-output",
@@ -59,7 +63,8 @@
       "reduction_after_targeted_retrieval_percent": 76.6,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "large-test-log",
@@ -80,7 +85,8 @@
       "reduction_after_targeted_retrieval_percent": 87.2,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "typescript-diagnostics",
@@ -101,7 +107,8 @@
       "reduction_after_targeted_retrieval_percent": 22.4,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "git-diff-like-output",
@@ -122,7 +129,8 @@
       "reduction_after_targeted_retrieval_percent": 82.8,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "json-tool-output",
@@ -143,7 +151,8 @@
       "reduction_after_targeted_retrieval_percent": 54.5,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "large-json-tool-output",
@@ -164,7 +173,8 @@
       "reduction_after_targeted_retrieval_percent": 92,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "failing-log",
@@ -185,7 +195,8 @@
       "reduction_after_targeted_retrieval_percent": 31.2,
       "exact_retrieval": true,
       "exit_code_preserved": true,
-      "artifact_created": true
+      "artifact_created": true,
+      "case_passed": true
     },
     {
       "id": "secret-block",
@@ -194,7 +205,8 @@
       "blocked": true,
       "artifact_created": true,
       "secret_absent_from_output": true,
-      "redacted_artifact_clean": true
+      "redacted_artifact_clean": true,
+      "case_passed": true
     }
   ]
 }
