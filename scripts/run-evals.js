@@ -102,7 +102,7 @@ const cases = [
 
 const secretCase = {
   id: "secret-block",
-  description: "secret-like output is blocked and not stored",
+  description: "secret-like output is blocked and stored only as a verified-redacted artifact",
   command: [nodeCommand, "-e", "console.log('api_key=abcdefghijklmnop123456')"],
 };
 
@@ -160,7 +160,18 @@ function casePassed(entry) {
   if ("exact_retrieval" in entry) {
     return entry.exact_retrieval && entry.exit_code_preserved && entry.targeted_retrieval_passed;
   }
-  return entry.blocked && !entry.artifact_created && entry.secret_absent_from_output;
+  // `artifact_created` is asserted TRUE here, not false. This assertion was written
+  // against the pre-D1 contract, where a blocked run stored nothing at all —
+  // preserving retrievable evidence on the blocked path is the entire point of that
+  // change, so a blocked run that stores no artifact is now a failure rather than the
+  // expected result. The stored copy must also survive re-detection, which is the
+  // storability gate itself.
+  return (
+    entry.blocked &&
+    entry.artifact_created &&
+    entry.secret_absent_from_output &&
+    entry.redacted_artifact_clean
+  );
 }
 
 // Ratio rounded to three decimals; an empty case list reports 0 instead of NaN.
@@ -208,13 +219,21 @@ for (const testCase of cases) {
 const secret = runRelay(["run", "--mode", "compress", "--", ...secretCase.command], {
   runId: secretCase.id,
 });
+const secretId = artifactId(secret.stdout);
+const secretRetrieval = secretId ? runRelay(["retrieve", secretId], { runId: secretCase.id }) : null;
 evaluated.push({
   id: secretCase.id,
   description: secretCase.description,
   relayed_exit_code: secret.status,
   blocked: /CR_BLOCK_SECRET/.test(secret.stdout),
-  artifact_created: Boolean(artifactId(secret.stdout)),
+  artifact_created: Boolean(secretId),
   secret_absent_from_output: !secret.stdout.includes("abcdefghijklmnop123456"),
+  redacted_artifact_clean: Boolean(
+    secretRetrieval &&
+      secretRetrieval.status === 0 &&
+      secretRetrieval.stdout.includes("[REDACTED_SECRET]") &&
+      !secretRetrieval.stdout.includes("abcdefghijklmnop123456"),
+  ),
 });
 
 for (const entry of evaluated) {
@@ -243,7 +262,18 @@ const report = {
     after_targeted_retrieval_reduction_percent_range: range(
       compressionCases.map((entry) => entry.reduction_after_targeted_retrieval_percent),
     ),
-    secret_block_passed: evaluated.some((entry) => entry.id === "secret-block" && entry.case_passed),
+    // main's generic case_passed AND the D1-specific assertions this branch added.
+    // case_passed alone would not notice the artifact missing, the secret leaking into
+    // stdout, or the stored redacted copy still holding a credential.
+    secret_block_passed: evaluated.some(
+      (entry) =>
+        entry.id === "secret-block" &&
+        entry.case_passed &&
+        entry.blocked &&
+        entry.artifact_created &&
+        entry.secret_absent_from_output &&
+        entry.redacted_artifact_clean,
+    ),
   },
   cases: evaluated,
 };
@@ -258,7 +288,9 @@ for (const entry of evaluated) {
       `${entry.id}: raw=${entry.raw_bytes}B summary=${entry.summary_bytes}B targeted=${entry.targeted_retrieval_bytes}B summary_only=${entry.reduction_before_retrieval_percent}% after_retrieval=${entry.reduction_after_targeted_retrieval_percent}% exact=${entry.exact_retrieval} exit=${entry.exit_code_preserved} targeted=${entry.targeted_retrieval_passed}`,
     );
   } else {
-    console.log(`${entry.id}: blocked=${entry.blocked} artifact=${entry.artifact_created} secret_absent=${entry.secret_absent_from_output}`);
+    console.log(
+      `${entry.id}: blocked=${entry.blocked} redacted_artifact=${entry.artifact_created} secret_absent=${entry.secret_absent_from_output} redacted_artifact_clean=${entry.redacted_artifact_clean}`,
+    );
   }
 }
 
