@@ -6,60 +6,63 @@ surface.
 
 ## Storage Model
 
-The CLI uses a local-only artifact store by default.
+The shipped CLI stores artifacts as local JSON files under `~/.context-relay` by
+default. `CONTEXT_RELAY_STORE_DIR` selects a different local store. Artifact
+records include workspace and repository metadata, but retrieval is not scoped
+or access-controlled by workspace or session; anyone who can read the selected
+store can read its artifact files.
 
-Required properties:
-- artifacts are scoped to the local workspace/session
-- artifact IDs are opaque and non-guessable
-- summaries include retrieval pointers, not embedded raw sensitive content
-- raw artifacts have TTL metadata
-- expired or missing artifacts fail closed, never summary-only
-- corrupt artifacts fail closed with a clear error
+Artifact IDs contain randomly generated components. Stored artifacts include
+expiry metadata and a SHA-256 content hash. CLI retrieval returns explicit
+errors for missing, expired, schema-mismatched, or hash-mismatched artifacts.
+Compressed output includes a retrieval pointer only after the artifact write
+succeeds; if that write fails, the CLI reports the store failure and passes
+through non-blocked output without compression.
 
 ## Retention
 
-Default retention is intentionally short. Local artifacts expire after eight
-hours unless the caller configures a different store policy.
-
-The public CLI includes:
-- default TTL
-- explicit `context-relay cleanup` and `context-relay cleanup --all` commands
-- fixture mode for permanent test artifacts only
+Artifacts have a fixed eight-hour expiry. The shipped CLI does not expose a TTL
+configuration or a permanent fixture mode. Expiry prevents retrieval but does
+not remove the JSON file automatically: `context-relay cleanup` removes expired
+artifacts, and `context-relay cleanup --all` removes all artifacts and the local
+event log from the selected store.
 
 ## Sensitive Data
 
-Secrets and PII are not compression candidates.
+The shipped policy is heuristic detection of documented secret shapes. It is not
+complete secret prevention, and there is no separate general-purpose PII policy.
+See [limitations.md](limitations.md#secret-detection) for covered shapes, known
+false positives, and known gaps.
 
-Required behavior:
-- block or redact detected secrets before summary generation
-- store a redacted artifact only when re-running detection on the redacted text
-  finds nothing; that gate is checked on every blocked run
-- drop output that cannot be safely redacted without storing it at all
-  (`CR_BLOCK_SECRET_UNSTORABLE`), and never fall back to relaying the raw text
-- do not include secret-looking strings in retrieval markers
-- preserve redaction metadata
-- treat unknown detector failures as passthrough or hard fail, not summarize
+When the detector matches output, the CLI replaces detected material and whole
+affected lines with `[REDACTED_SECRET]`, then runs the same detector over that
+redacted text. If the detector no longer matches, the CLI stores the redacted
+copy with redaction metadata. Its blocked envelope contains the redacted command,
+execution/count metadata, and artifact pointer, but no content from the blocked
+output. If the verification gate does not pass, the CLI stores and relays none
+of the command output and reports `CR_BLOCK_SECRET_UNSTORABLE`. A blocked-path
+store failure likewise does not fall back to relaying the unredacted output.
 
-Auth and security diagnostics are passthrough by default because exact text often
-matters. If they contain secrets, secret-redaction safeguards still apply.
+The `raw` command and `run --mode raw` stream output without secret filtering.
+Use them only when the output is safe to show directly to the agent.
 
 ## Boundary Limits
 
 Context Relay does not inspect or intercept hosted ChatGPT or Claude web UI
 traffic.
 
-The supported surfaces are:
-- explicit CLI wrappers
-- local SDK middleware
-- local proxy mode
-- MCP/tool retrieval surfaces where installed explicitly
+The shipped surfaces are explicit CLI command wrapping and CLI artifact
+retrieval. Optional `PreToolUse` hook installers provide automatic Bash command
+wrapping for Claude Code and Codex. API-based agents can use Context Relay only
+by invoking the CLI explicitly around tool execution.
+
+SDK middleware, a local proxy, and MCP retrieval surfaces are future work; they
+are not implemented in the shipped CLI.
 
 ## User Responsibilities
 
-Before using Context Relay on sensitive output, understand:
-- where raw artifacts live
-- how long artifacts are retained
-- how cleanup works
-- what is redacted or blocked
-- what remains the user's responsibility
-- why retrieval can fail and what to do next
+Before using Context Relay on sensitive output, review the selected store's
+filesystem access, the fixed retention and cleanup behavior, the heuristic
+secret-detection gaps, and the unfiltered `raw` escape hatch.
+Correctness-sensitive work should retrieve the relevant artifact before relying
+on a compressed summary, while the artifact remains available.
