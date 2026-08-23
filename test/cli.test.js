@@ -1462,6 +1462,95 @@ describe("context-relay CLI", () => {
     assert.equal(keyForCommand("npm --prefix ./app run build"), "npm run build");
   });
 
+  it("keys and rewrites pnpm/npm commands correctly when per-tool flag semantics diverge (BUG 5 / BUG 6)", async () => {
+    const workDir = await mkdtemp(path.join(os.tmpdir(), "context-relay-npmfamily-"));
+    tempDirs.push(workDir);
+    await writeFile(
+      path.join(workDir, "package.json"),
+      `${JSON.stringify(
+        { name: "app", version: "1.0.0", scripts: { build: "node -e \"console.log('built')\"" } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    // pnpm's `-w` is the BOOLEAN `--workspace-root` toggle (verified: `pnpm -w run build`
+    // errors "--workspace-root may only be used inside a workspace" rather than consuming
+    // "run" as a value), unlike npm's value-taking `-w <workspace-name>`. Treating it as
+    // value-taking for pnpm swallows the real subcommand and keys as `pnpm build`.
+    run(["run", "--", "pnpm", "-w", "run", "build"], { cwd: workDir });
+    // npm's `-w <name>` genuinely IS value-taking and must still consume its value.
+    run(["run", "--", "npm", "-w", "some-workspace", "run", "build"], { cwd: workDir });
+    // `--prefix=<dir>` (inline `=` form) was unhandled - only the separate-argument form
+    // worked - so it must now key the same as the working separate-argument form.
+    run(["run", "--", "npm", `--prefix=${workDir}`, "run", "build"]);
+    // Table-consistency companion bug found auditing the same two sets: npm's
+    // `--workspace <name>` (separate-argument form, no `=`) was only recognized in the
+    // INLINE set, not the separate-argument set, so it fell through and rejected.
+    run(["run", "--", "npm", "--workspace", "some-workspace", "run", "build"], { cwd: workDir });
+
+    const events = (await readStoreEvents()).filter(
+      (event) => event.kind !== "retrievals" && event.kind !== "retrieval_miss",
+    );
+    const keyForCommand = (commandText) => events.find((event) => event.command === commandText)?.commandKey;
+
+    assert.equal(keyForCommand("pnpm -w run build"), "pnpm run build");
+    assert.equal(keyForCommand("npm -w some-workspace run build"), "npm run build");
+    assert.equal(keyForCommand(`npm --prefix=${workDir} run build`), "npm run build");
+    assert.equal(keyForCommand("npm --workspace some-workspace run build"), "npm run build");
+  });
+
+  it("rewrites npm --prefix=<dir> (inline form) the same as the separate-argument form (BUG 6: rewrite gate)", () => {
+    const separateForm = run(["rewrite", "npm", "--prefix", "./app", "run", "build"]);
+    assert.equal(separateForm.status, 0, separateForm.stderr);
+    assert.equal(
+      separateForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"npm --prefix ./app run build"}'\n`,
+    );
+
+    const inlineForm = run(["rewrite", "npm", "--prefix=./app", "run", "build"]);
+    assert.equal(inlineForm.status, 0, inlineForm.stderr);
+    assert.equal(
+      inlineForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"npm --prefix=./app run build"}'\n`,
+    );
+  });
+
+  it("recognizes pnpm's --dir <path> as the documented long form of -C (NIT 2)", () => {
+    const shortForm = run(["rewrite", "pnpm", "-C", "./app", "run", "build"]);
+    assert.equal(shortForm.status, 0, shortForm.stderr);
+    assert.equal(
+      shortForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"pnpm -C ./app run build"}'\n`,
+    );
+
+    const longForm = run(["rewrite", "pnpm", "--dir", "./app", "run", "build"]);
+    assert.equal(longForm.status, 0, longForm.stderr);
+    assert.equal(
+      longForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"pnpm --dir ./app run build"}'\n`,
+    );
+  });
+
+  it("rejects bun --cwd <dir> as a separate-argument directory flag; inline --cwd=<dir> still works (NIT 1: bun --cwd is inline-only)", () => {
+    // Fable verified live (bun 1.3.11): `bun --cwd <dir> run build` chdirs but then prints
+    // `bun run` usage and does NOT run the script (exit 0); `bun --cwd <dir> test` fails
+    // with `error: Script not found "test"`. Treating the separate-argument form as
+    // value-taking used to skip over the directory token and land on "test" as the
+    // subcommand - looking safe to the gate while the actual bun invocation never runs the
+    // test suite it appears to key as. Only the inline `--cwd=<dir>` form actually works.
+    const separateForm = run(["rewrite", "bun", "--cwd", "/tmp/some-project", "test"]);
+    assert.equal(separateForm.status, 1);
+    assert.equal(separateForm.stdout, "");
+
+    const inlineForm = run(["rewrite", "bun", "--cwd=/tmp/some-project", "test"]);
+    assert.equal(inlineForm.status, 0, inlineForm.stderr);
+    assert.equal(
+      inlineForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"bun --cwd=/tmp/some-project test"}'\n`,
+    );
+  });
+
   it("keeps stats across parallel retrievals", async () => {
     const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
     const id = artifactId(compressed.stdout);
@@ -1865,21 +1954,25 @@ describe("context-relay CLI", () => {
     assert.equal(statusPayload.claude.automaticShellWrapping, true);
     assert.equal(statusPayload.codex.automaticShellWrapping, true);
 
-    // Re-running init must not add a second, absolute-form entry alongside the legacy one.
+    // Re-running init must not add a second entry alongside the legacy one - AND it must
+    // upsert the legacy bare-name entry into the absolute-form command, self-healing the
+    // exact "silently fails to resolve once the subprocess loses PATH" problem this hook
+    // has (see the comment above): recognizing the legacy string as "already installed"
+    // and leaving it in place would leave the user stuck with a broken hook forever.
     const reinit = run(["init", "--all"], { env });
     assert.equal(reinit.status, 0, reinit.stderr);
     const claudeSettingsAfterReinit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
     assert.equal(claudeSettingsAfterReinit.hooks.PreToolUse.length, 1);
-    assert.equal(
-      claudeSettingsAfterReinit.hooks.PreToolUse[0].hooks[0].command,
-      "context-relay hook claude",
-    );
+    const claudeReinitCommand = claudeSettingsAfterReinit.hooks.PreToolUse[0].hooks[0].command;
+    assert.notEqual(claudeReinitCommand, "context-relay hook claude");
+    assert.match(claudeReinitCommand, /hook claude$/);
+    assert.match(claudeReinitCommand, /context-relay\.js/);
     const codexHooksAfterReinit = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
     assert.equal(codexHooksAfterReinit.hooks.PreToolUse.length, 1);
-    assert.equal(
-      codexHooksAfterReinit.hooks.PreToolUse[0].hooks[0].command,
-      "context-relay hook codex",
-    );
+    const codexReinitCommand = codexHooksAfterReinit.hooks.PreToolUse[0].hooks[0].command;
+    assert.notEqual(codexReinitCommand, "context-relay hook codex");
+    assert.match(codexReinitCommand, /hook codex$/);
+    assert.match(codexReinitCommand, /context-relay\.js/);
 
     const uninstall = run(["uninstall", "--all"], { env });
     assert.equal(uninstall.status, 0, uninstall.stderr);
@@ -1887,6 +1980,290 @@ describe("context-relay CLI", () => {
     assert.equal(claudeSettingsAfterUninstall.hooks, undefined);
     const codexHooksAfterUninstall = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
     assert.equal(codexHooksAfterUninstall.hooks, undefined);
+  });
+
+  it("does not recognize a same-shaped foreign command as its own hook, and never removes one on uninstall (BUG 4)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = {
+      CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+      CONTEXT_RELAY_CODEX_HOME: codexHome,
+    };
+
+    // Three foreign hooks, none of them ours, each shaped to defeat a naive
+    // substring-on-"context-relay" check: a DIFFERENT tool whose binary name happens to
+    // contain "context-relay" as a substring, an arbitrary command that mentions
+    // "context-relay" in passing, and (as a baseline) a wholly unrelated tool. All three
+    // end in "hook claude" / "hook codex", the shape isManagedHookCommand also looks for.
+    const foreignClaudeHooks = [
+      { type: "command", command: "/usr/local/bin/context-relay-wrapper hook claude" },
+      { type: "command", command: "echo context-relay hook claude" },
+      { type: "command", command: "/usr/bin/other-tool hook claude" },
+    ];
+    const foreignCodexHooks = [
+      { type: "command", command: "/usr/local/bin/context-relay-wrapper hook codex" },
+      { type: "command", command: "echo context-relay hook codex" },
+      { type: "command", command: "/usr/bin/other-tool hook codex" },
+    ];
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: foreignClaudeHooks.map((hook) => ({ matcher: "Bash", hooks: [hook] })),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeFile(
+      path.join(codexHome, "hooks.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: foreignCodexHooks.map((hook) => ({ matcher: "Bash", hooks: [hook] })),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    // None of the foreign hooks should be recognized as already-ours: init must add its
+    // OWN new entry alongside them rather than treating any foreign entry as installed.
+    const init = run(["init", "--all"], { env });
+    assert.equal(init.status, 0, init.stderr);
+
+    const claudeAfterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeAfterInit.hooks.PreToolUse.length, foreignClaudeHooks.length + 1);
+    for (const hook of foreignClaudeHooks) {
+      assert.ok(
+        claudeAfterInit.hooks.PreToolUse.some((entry) => entry.hooks[0].command === hook.command),
+        `expected foreign hook to survive init: ${hook.command}`,
+      );
+    }
+    const ownClaudeEntry = claudeAfterInit.hooks.PreToolUse.at(-1);
+    assert.match(ownClaudeEntry.hooks[0].command, /hook claude$/);
+    assert.match(ownClaudeEntry.hooks[0].command, /context-relay\.js/);
+
+    const codexAfterInit = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexAfterInit.hooks.PreToolUse.length, foreignCodexHooks.length + 1);
+    for (const hook of foreignCodexHooks) {
+      assert.ok(
+        codexAfterInit.hooks.PreToolUse.some((entry) => entry.hooks[0].command === hook.command),
+        `expected foreign hook to survive init: ${hook.command}`,
+      );
+    }
+
+    // The destructive path: uninstall must remove ONLY the entry it just added, and every
+    // foreign hook - including the substring-colliding ones - must survive untouched.
+    const uninstall = run(["uninstall", "--all"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+
+    const claudeAfterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeAfterUninstall.hooks.PreToolUse.length, foreignClaudeHooks.length);
+    assert.deepEqual(
+      claudeAfterUninstall.hooks.PreToolUse.map((entry) => entry.hooks[0].command),
+      foreignClaudeHooks.map((hook) => hook.command),
+    );
+
+    const codexAfterUninstall = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexAfterUninstall.hooks.PreToolUse.length, foreignCodexHooks.length);
+    assert.deepEqual(
+      codexAfterUninstall.hooks.PreToolUse.map((entry) => entry.hooks[0].command),
+      foreignCodexHooks.map((hook) => hook.command),
+    );
+  });
+
+  it("does not duplicate the generated absolute-form hook on re-init (BUG 4)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    const firstInit = run(["init", "--claude"], { env });
+    assert.equal(firstInit.status, 0, firstInit.stderr);
+    const afterFirstInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterFirstInit.hooks.PreToolUse.length, 1);
+    const generatedCommand = afterFirstInit.hooks.PreToolUse[0].hooks[0].command;
+    assert.match(generatedCommand, /hook claude$/);
+    assert.match(generatedCommand, /context-relay\.js/);
+
+    const secondInit = run(["init", "--claude"], { env });
+    assert.equal(secondInit.status, 0, secondInit.stderr);
+    const afterSecondInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterSecondInit.hooks.PreToolUse.length, 1);
+    assert.equal(afterSecondInit.hooks.PreToolUse[0].hooks[0].command, generatedCommand);
+  });
+
+  it("recognizes a hook pointing at a DIFFERENT install location as its own, and uninstall removes it (BLOCKING fix: clone-to-npm migration under-match)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = {
+      CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+      CONTEXT_RELAY_CODEX_HOME: codexHome,
+    };
+
+    // Simulate exactly the migration scenario the blocking review describes: a hook
+    // written by a DIFFERENT install of context-relay (e.g. an npm-link'd clone at a path
+    // that no longer exists on this machine, now that the published npm package is what's
+    // executing `status`/`uninstall`). The script path is a 4-token generated command
+    // whose basename is "context-relay.js" but whose directory is NOT where this test's
+    // own resolveCliScriptPath() points.
+    const migratedClaudeHook = "'/usr/bin/some-other-node' '/dead/clone/path/bin/context-relay.js' hook claude";
+    const migratedCodexHook = "'/usr/bin/some-other-node' '/dead/clone/path/bin/context-relay.js' hook codex";
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: migratedClaudeHook }] }] } },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeFile(
+      path.join(codexHome, "hooks.json"),
+      `${JSON.stringify(
+        { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: migratedCodexHook }] }] } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    // Before the fix, path-IDENTITY comparison against this process's own
+    // resolveCliScriptPath() would fail here (the recorded path genuinely differs), so
+    // status would wrongly report "not installed" even though the hook fires on every
+    // Bash call.
+    const status = run(["status"], { env });
+    assert.equal(status.status, 0, status.stderr);
+    const statusPayload = JSON.parse(status.stdout);
+    assert.equal(statusPayload.claude.automaticShellWrapping, true);
+    assert.equal(statusPayload.codex.automaticShellWrapping, true);
+
+    // Before the fix, uninstall would silently leave the migrated hook in place (same
+    // identity mismatch), so once the dead clone path is removed from disk the orphaned
+    // hook errors on every subsequent Bash call.
+    const uninstall = run(["uninstall", "--all"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const claudeAfterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeAfterUninstall.hooks, undefined);
+    const codexAfterUninstall = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexAfterUninstall.hooks, undefined);
+  });
+
+  it("still rejects a wrapper binary, an echoed string, and a bare 'context-relay' (no .js) basename as the managed hook", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // Four candidates, all shaped to defeat a naive substring or bare-basename check:
+    //   - a different tool whose binary path happens to contain "context-relay" as a
+    //     substring (basename "context-relay-wrapper" - fails the exact ".js" basename
+    //     check)
+    //   - an arbitrary command that mentions "context-relay" in passing (4 tokens, but
+    //     tokens[1] is "context-relay" with no path separator and no ".js" extension)
+    //   - the bare basename "context-relay" (no ".js") used as a 4-token script-path
+    //     token - explicitly called out as the hole that must stay closed: only the
+    //     LEGACY 3-token exact string counts as "bare"
+    //   - a wholly unrelated tool, as a baseline
+    const foreignHooks = [
+      "/usr/local/bin/context-relay-wrapper hook claude",
+      "echo context-relay hook claude",
+      "'/usr/bin/node' '/usr/local/bin/context-relay' hook claude",
+      "/usr/bin/other-tool hook claude",
+    ];
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        { hooks: { PreToolUse: foreignHooks.map((command) => ({ matcher: "Bash", hooks: [{ type: "command", command }] })) } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const status = run(["status"], { env });
+    assert.equal(status.status, 0, status.stderr);
+    assert.equal(JSON.parse(status.stdout).claude.automaticShellWrapping, false);
+
+    // None of the four should be recognized as already-ours, so init must add its OWN
+    // fifth entry rather than treating any of them as installed.
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterInit.hooks.PreToolUse.length, foreignHooks.length + 1);
+    for (const command of foreignHooks) {
+      assert.ok(
+        afterInit.hooks.PreToolUse.some((entry) => entry.hooks[0].command === command),
+        `expected foreign hook to survive init: ${command}`,
+      );
+    }
+
+    // The destructive path: uninstall must remove ONLY the entry it just added.
+    const uninstall = run(["uninstall", "--claude"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const afterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterUninstall.hooks.PreToolUse.length, foreignHooks.length);
+    assert.deepEqual(
+      afterUninstall.hooks.PreToolUse.map((entry) => entry.hooks[0].command),
+      foreignHooks,
+    );
+  });
+
+  it("init upserts a stale managed hook to the freshly generated command, leaving foreign entries in the same array untouched (BLOCKING fix: init self-heal)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // A stale managed hook (basename "context-relay.js", but a dead/different directory
+    // than this test's own install) shares an entry.hooks array with a foreign hook, and a
+    // second, wholly separate PreToolUse entry holds another foreign hook. Both foreign
+    // hooks must survive untouched; only the stale managed hook may be rewritten.
+    const staleCommand = "'/usr/bin/some-other-node' '/dead/clone/path/bin/context-relay.js' hook claude";
+    const foreignSameEntry = "/usr/bin/other-tool hook claude";
+    const foreignOtherEntry = "echo context-relay hook claude";
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: "Bash",
+                hooks: [
+                  { type: "command", command: foreignSameEntry },
+                  { type: "command", command: staleCommand },
+                ],
+              },
+              { matcher: "Bash", hooks: [{ type: "command", command: foreignOtherEntry }] },
+            ],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+
+    const allCommands = afterInit.hooks.PreToolUse.flatMap((entry) => entry.hooks.map((hook) => hook.command));
+    // The two foreign hooks survive untouched, in the entries they started in.
+    assert.ok(allCommands.includes(foreignSameEntry), "foreign hook sharing the stale entry must survive");
+    assert.ok(allCommands.includes(foreignOtherEntry), "foreign hook in its own entry must survive");
+    // The stale path is gone entirely - not left in place, not left as a duplicate.
+    assert.ok(!allCommands.includes(staleCommand), "stale managed hook must not survive init unchanged");
+    // Exactly one hook remains shaped like our own managed hook, and it is the freshly
+    // generated command, not the stale one.
+    const managedShaped = allCommands.filter((command) => /context-relay\.js/.test(command));
+    assert.equal(managedShaped.length, 1);
+    assert.notEqual(managedShaped[0], staleCommand);
+    assert.match(managedShaped[0], /hook claude$/);
+
+    const firstEntry = afterInit.hooks.PreToolUse[0];
+    assert.equal(firstEntry.hooks.length, 1);
+    assert.equal(firstEntry.hooks[0].command, foreignSameEntry);
   });
 
   it("ships required public packaging assets without local private paths", async () => {
