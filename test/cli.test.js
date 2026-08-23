@@ -1462,7 +1462,45 @@ describe("context-relay CLI", () => {
     assert.equal(keyForCommand("npm --prefix ./app run build"), "npm run build");
   });
 
-  it("keys and rewrites pnpm/npm commands correctly when per-tool flag semantics diverge (BUG 5 / BUG 6)", async () => {
+  // The BUG 5 / BUG 6 property is pure key-derivation logic over an argv array
+  // (findNpmSubcommandIndex / commandKey in lib/command-shape.js and lib/cli.js) - it has
+  // nothing to do with what a real package manager binary does at runtime. This used to be
+  // asserted only by actually spawning `pnpm` (see git history), which meant the test
+  // silently depended on pnpm being installed on the machine running it. CI runners have
+  // node/npm/git but NOT pnpm, so that spawn failed, no event was recorded, and the lookup
+  // returned `undefined` - a hard failure on every CI run despite the underlying logic
+  // being correct. Testing the argv -> key mapping directly, with no subprocess at all,
+  // makes the property deterministic and CI-safe. (This file otherwise favors black-box
+  // CLI-subprocess tests, but lib/policy.js's hasSecret/redactSecrets are already imported
+  // and unit-tested directly elsewhere in this file - see the redaction tests above - so
+  // this is consistent with existing practice, not a new exception.)
+  it("derives pnpm/npm command keys correctly for per-tool flag semantics, from argv only (BUG 5 / BUG 6)", async () => {
+    const { commandKey } = await import("../lib/cli.js");
+
+    // pnpm's `-w` is the BOOLEAN `--workspace-root` toggle (verified: `pnpm -w run build`
+    // errors "--workspace-root may only be used inside a workspace" rather than consuming
+    // "run" as a value), unlike npm's value-taking `-w <workspace-name>`. Treating it as
+    // value-taking for pnpm swallows the real subcommand and keys as `pnpm build`.
+    assert.equal(commandKey(["pnpm", "-w", "run", "build"]), "pnpm run build");
+    // npm's `-w <name>` genuinely IS value-taking and must still consume its value.
+    assert.equal(commandKey(["npm", "-w", "some-workspace", "run", "build"]), "npm run build");
+    // `--prefix=<dir>` (inline `=` form) was unhandled - only the separate-argument form
+    // worked - so it must now key the same as the working separate-argument form.
+    assert.equal(commandKey(["npm", "--prefix=/tmp/some-app", "run", "build"]), "npm run build");
+    // Table-consistency companion bug found auditing the same two sets: npm's
+    // `--workspace <name>` (separate-argument form, no `=`) was only recognized in the
+    // INLINE set, not the separate-argument set, so it fell through and rejected.
+    assert.equal(
+      commandKey(["npm", "--workspace", "some-workspace", "run", "build"]),
+      "npm run build",
+    );
+  });
+
+  // Companion integration test: confirms the same property survives real process spawn and
+  // event recording end to end, using only executables CI is guaranteed to have (npm, like
+  // git elsewhere in this file, is assumed present). pnpm's bare `-w` case is NOT
+  // re-exercised here - it is fully covered, deterministically, by the unit test above.
+  it("keys npm commands correctly when spawned for real, for divergent flag forms (BUG 5 / BUG 6)", async () => {
     const workDir = await mkdtemp(path.join(os.tmpdir(), "context-relay-npmfamily-"));
     tempDirs.push(workDir);
     await writeFile(
@@ -1474,11 +1512,6 @@ describe("context-relay CLI", () => {
       )}\n`,
     );
 
-    // pnpm's `-w` is the BOOLEAN `--workspace-root` toggle (verified: `pnpm -w run build`
-    // errors "--workspace-root may only be used inside a workspace" rather than consuming
-    // "run" as a value), unlike npm's value-taking `-w <workspace-name>`. Treating it as
-    // value-taking for pnpm swallows the real subcommand and keys as `pnpm build`.
-    run(["run", "--", "pnpm", "-w", "run", "build"], { cwd: workDir });
     // npm's `-w <name>` genuinely IS value-taking and must still consume its value.
     run(["run", "--", "npm", "-w", "some-workspace", "run", "build"], { cwd: workDir });
     // `--prefix=<dir>` (inline `=` form) was unhandled - only the separate-argument form
@@ -1494,7 +1527,6 @@ describe("context-relay CLI", () => {
     );
     const keyForCommand = (commandText) => events.find((event) => event.command === commandText)?.commandKey;
 
-    assert.equal(keyForCommand("pnpm -w run build"), "pnpm run build");
     assert.equal(keyForCommand("npm -w some-workspace run build"), "npm run build");
     assert.equal(keyForCommand(`npm --prefix=${workDir} run build`), "npm run build");
     assert.equal(keyForCommand("npm --workspace some-workspace run build"), "npm run build");
