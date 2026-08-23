@@ -1,4 +1,4 @@
-import { access, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -103,6 +103,25 @@ async function makeTempDir(prefix) {
   const dir = await mkdtemp(path.join(os.tmpdir(), prefix));
   tempDirs.push(dir);
   return dir;
+}
+
+// Reads the store's event log directly so a test can assert on the exact `commandKey`
+// recorded for a run, independent of the savings-threshold filtering `gain`/`discover`
+// apply before they show a command in their reports.
+async function readStoreEvents() {
+  let text;
+  try {
+    text = await readFile(path.join(storeDir, "events.jsonl"), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+  return text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
 }
 
 // Keep git away from real user and system configuration so summaries of
@@ -1388,6 +1407,61 @@ describe("context-relay CLI", () => {
     assert.match(discoverText.stdout, /Already working well|Reducer candidates/);
   });
 
+  it("keys git and npm commands correctly when global flags precede the subcommand (BUG 2)", async () => {
+    const repoDir = await makeTempGitRepo();
+    await writeFile(path.join(repoDir, "a.txt"), "hello\n");
+    git(["add", "a.txt"], repoDir);
+    const commitResult = spawnSync("git", ["commit", "-m", "init"], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        ...isolatedGitEnv,
+        GIT_AUTHOR_NAME: "Test",
+        GIT_AUTHOR_EMAIL: "test@example.com",
+        GIT_COMMITTER_NAME: "Test",
+        GIT_COMMITTER_EMAIL: "test@example.com",
+      },
+      encoding: "utf8",
+    });
+    assert.equal(commitResult.status, 0, commitResult.stderr);
+
+    const gitDir = path.join(repoDir, ".git");
+    const appDir = path.join(repoDir, "app");
+    await mkdir(appDir, { recursive: true });
+    await writeFile(
+      path.join(appDir, "package.json"),
+      `${JSON.stringify(
+        { name: "app", version: "1.0.0", scripts: { build: "node -e \"console.log('built')\"" } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    // Plain `git log` still keys correctly (no regression).
+    run(["run", "--", "git", "log", "--oneline"], { cwd: repoDir, env: isolatedGitEnv });
+    // `git -C <path> log` used to key as `git -C` because `-C`'s value token was read as
+    // the subcommand; it must key the same as plain `git log`.
+    run(["run", "--", "git", "-C", repoDir, "log", "--oneline"], { env: isolatedGitEnv });
+    // Same class of bug via the inline `--git-dir=<path>` global option.
+    run(["run", "--", "git", `--git-dir=${gitDir}`, "log", "--oneline"], { env: isolatedGitEnv });
+    // An unrecognized global flag must fall back safely to the bare executable name
+    // rather than inventing a key from the flag itself.
+    run(["run", "--", "git", "-C", repoDir, "--not-a-real-flag", "log"], { env: isolatedGitEnv });
+    // npm-family global flags before `run <script>` must not break `npm run build` keying.
+    run(["run", "--", "npm", "--prefix", "./app", "run", "build"], { cwd: repoDir });
+
+    const events = (await readStoreEvents()).filter(
+      (event) => event.kind !== "retrievals" && event.kind !== "retrieval_miss",
+    );
+    const keyForCommand = (commandText) => events.find((event) => event.command === commandText)?.commandKey;
+
+    assert.equal(keyForCommand("git log --oneline"), "git log");
+    assert.equal(keyForCommand(`git -C ${repoDir} log --oneline`), "git log");
+    assert.equal(keyForCommand(`git --git-dir=${gitDir} log --oneline`), "git log");
+    assert.equal(keyForCommand(`git -C ${repoDir} --not-a-real-flag log`), "git");
+    assert.equal(keyForCommand("npm --prefix ./app run build"), "npm run build");
+  });
+
   it("keeps stats across parallel retrievals", async () => {
     const compressed = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
     const id = artifactId(compressed.stdout);
@@ -1498,6 +1572,95 @@ describe("context-relay CLI", () => {
     assert.equal(packageTest.stdout, "context-relay run --mode auto -- bash -lc 'npm test'\n");
   });
 
+  it("rewrites git/npm commands whose global flags precede the subcommand (BUG 3: rewrite gate, not just stats keying)", async () => {
+    // commandKey (stats attribution) already skips leading global flags to find the real
+    // subcommand. isAllowedCommandShape (lib/integrations.js) - the SEPARATE gate that
+    // decides whether the PreToolUse hook wraps a command AT ALL - had the identical
+    // parts[1] assumption and was never fixed. `git -C /path log` used to key correctly
+    // for stats but still fail to be wrapped, because the gate itself never saw past `-C`
+    // to find `log`.
+    const repoDir = await makeTempGitRepo();
+    const gitDir = path.join(repoDir, ".git");
+
+    // Plain `git log` still allowed (no regression).
+    const plainLog = run(["rewrite", "git", "log"]);
+    assert.equal(plainLog.status, 0, plainLog.stderr);
+    assert.equal(plainLog.stdout, "context-relay run --mode auto -- bash -lc 'git log'\n");
+
+    // `git -C <path> log --oneline -30` must now be ALLOWED (wrapped).
+    const dashCLog = run(["rewrite", "git", "-C", repoDir, "log", "--oneline", "-30"]);
+    assert.equal(dashCLog.status, 0, dashCLog.stderr);
+    assert.equal(
+      dashCLog.stdout,
+      `context-relay run --mode auto -- bash -lc '${`git -C ${repoDir} log --oneline -30`}'\n`,
+    );
+
+    // Inline `--git-dir=<path>` global option must also be ALLOWED.
+    const gitDirLog = run(["rewrite", "git", `--git-dir=${gitDir}`, "log"]);
+    assert.equal(gitDirLog.status, 0, gitDirLog.stderr);
+    assert.equal(
+      gitDirLog.stdout,
+      `context-relay run --mode auto -- bash -lc '${`git --git-dir=${gitDir} log`}'\n`,
+    );
+
+    // `git -C <path> push` must still be REJECTED: push is not in SAFE_GIT_SUBCOMMANDS,
+    // and flag-skipping must not widen the safety allowlist.
+    const dashCPush = run(["rewrite", "git", "-C", repoDir, "push"]);
+    assert.equal(dashCPush.status, 1);
+    assert.equal(dashCPush.stdout, "");
+
+    // An unrecognized global flag must still fall back to REJECTED (conservative), never
+    // wrapped by a guess.
+    const unknownFlag = run(["rewrite", "git", "-C", repoDir, "--not-a-real-flag", "log"]);
+    assert.equal(unknownFlag.status, 1);
+    assert.equal(unknownFlag.stdout, "");
+
+    // An interactive/long-running command with leading flags must still be REJECTED - the
+    // INTERACTIVE_OR_LONG_RUNNING_PATTERNS check runs before any flag-skipping.
+    const devWithFlags = run(["rewrite", "npm", "--prefix", "./app", "run", "dev"]);
+    assert.equal(devWithFlags.status, 1);
+    assert.equal(devWithFlags.stdout, "");
+
+    // npm-family global flags before `run <script>` must not break `npm run build` gating.
+    const npmPrefixBuild = run(["rewrite", "npm", "--prefix", "./app", "run", "build"]);
+    assert.equal(npmPrefixBuild.status, 0, npmPrefixBuild.stderr);
+    assert.equal(
+      npmPrefixBuild.stdout,
+      `context-relay run --mode auto -- bash -lc '${"npm --prefix ./app run build"}'\n`,
+    );
+  });
+
+  it("emits the real Claude Code PreToolUse hook rewrite for `git -C <path> log`, not empty passthrough (BUG 3 end-to-end)", async () => {
+    const repoDir = await makeTempGitRepo();
+
+    const wrapped = run(["hook", "claude"], {
+      input: JSON.stringify({
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command: `git -C ${repoDir} log --oneline -30` },
+      }),
+    });
+    assert.equal(wrapped.status, 0, wrapped.stderr);
+    assert.notEqual(wrapped.stdout, "");
+    const wrappedOutput = JSON.parse(wrapped.stdout);
+    assert.equal(wrappedOutput.hookSpecificOutput.hookEventName, "PreToolUse");
+    assert.equal(
+      wrappedOutput.hookSpecificOutput.updatedInput.command,
+      `context-relay run --mode auto -- bash -lc '${`git -C ${repoDir} log --oneline -30`}'`,
+    );
+
+    // `git -C <path> push` must still emit nothing - push is a mutating subcommand.
+    const notWrapped = run(["hook", "claude"], {
+      input: JSON.stringify({
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command: `git -C ${repoDir} push` },
+      }),
+    });
+    assert.equal(notWrapped.status, 0, notWrapped.stderr);
+    assert.equal(notWrapped.stdout, "");
+  });
+
   it("emits Claude Code hook updatedInput for eligible Bash commands", () => {
     const payload = {
       tool_input: {
@@ -1544,7 +1707,7 @@ describe("context-relay CLI", () => {
     assert.equal(result.stdout, "");
   });
 
-  it("installs Claude and Codex hooks without touching real homes", async () => {
+  it("installs Claude and Codex hooks without touching real homes, and the written hook command resolves with no PATH", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
     tempDirs.push(claudeHome, codexHome);
@@ -1560,26 +1723,65 @@ describe("context-relay CLI", () => {
     assert.equal(install.installed.length, 2);
 
     const claudeSettings = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
-    assert.deepEqual(claudeSettings.hooks.PreToolUse.at(-1), {
-      matcher: "Bash",
-      hooks: [{ type: "command", command: "context-relay hook claude" }],
-    });
+    const claudeHookEntry = claudeSettings.hooks.PreToolUse.at(-1);
+    assert.equal(claudeHookEntry.matcher, "Bash");
+    assert.equal(claudeHookEntry.hooks.length, 1);
+    assert.equal(claudeHookEntry.hooks[0].type, "command");
+    const claudeHookCommand = claudeHookEntry.hooks[0].command;
+    // BUG 1 regression guard: a hook subprocess does not inherit the invoking shell's PATH,
+    // so the old bare "context-relay hook claude" silently failed to resolve whenever
+    // context-relay was installed via `npm link` rather than onto a PATH directory. The
+    // written command must no longer be that bare form, and must be self-contained.
+    assert.notEqual(claudeHookCommand, "context-relay hook claude");
+    assert.match(claudeHookCommand, /hook claude$/);
+    assert.match(claudeHookCommand, /context-relay\.js/);
     assert.match(await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8"), /@CONTEXT_RELAY\.md/);
     assert.match(await readFile(path.join(claudeHome, "CONTEXT_RELAY.md"), "utf8"), /Context Relay wraps noisy shell output/);
 
     assert.match(await readFile(path.join(codexHome, "AGENTS.md"), "utf8"), /Context Relay managed block/);
     assert.match(await readFile(path.join(codexHome, "CONTEXT_RELAY.md"), "utf8"), /Context Relay wraps noisy shell output/);
     const codexHooks = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
-    assert.deepEqual(codexHooks.hooks.PreToolUse.at(-1), {
-      matcher: "Bash",
-      hooks: [
-        {
-          type: "command",
-          command: "context-relay hook codex",
-          statusMessage: "Wrapping noisy shell output with Context Relay",
-        },
-      ],
+    const codexHookEntry = codexHooks.hooks.PreToolUse.at(-1);
+    assert.equal(codexHookEntry.matcher, "Bash");
+    assert.equal(codexHookEntry.hooks.length, 1);
+    assert.equal(codexHookEntry.hooks[0].type, "command");
+    assert.equal(codexHookEntry.hooks[0].statusMessage, "Wrapping noisy shell output with Context Relay");
+    const codexHookCommand = codexHookEntry.hooks[0].command;
+    assert.notEqual(codexHookCommand, "context-relay hook codex");
+    assert.match(codexHookCommand, /hook codex$/);
+    assert.match(codexHookCommand, /context-relay\.js/);
+
+    // The actual regression test: run the exact installed command line through a shell
+    // with the minimal PATH from the live repro (`env -i PATH=/usr/bin:/bin sh -c
+    // 'command -v context-relay'` finds nothing on this machine), invoking the shell
+    // itself by absolute path so PATH plays no role in finding /bin/sh either. If the
+    // written hook command still depended on PATH to resolve `context-relay` or `node`,
+    // this would fail to spawn or exit non-zero instead of returning a rewrite.
+    const minimalPathEnv = { PATH: "/usr/bin:/bin" };
+    const claudeHookRun = spawnSync("/bin/sh", ["-c", claudeHookCommand], {
+      env: minimalPathEnv,
+      input: JSON.stringify({ tool_input: { command: "pnpm test" } }),
+      encoding: "utf8",
     });
+    assert.equal(claudeHookRun.status, 0, claudeHookRun.stderr);
+    const claudeHookOutput = JSON.parse(claudeHookRun.stdout);
+    assert.equal(
+      claudeHookOutput.hookSpecificOutput.updatedInput.command,
+      "context-relay run --mode auto -- bash -lc 'pnpm test'",
+    );
+
+    const codexHookRun = spawnSync("/bin/sh", ["-c", codexHookCommand], {
+      env: minimalPathEnv,
+      input: JSON.stringify({
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "pnpm test" },
+      }),
+      encoding: "utf8",
+    });
+    assert.equal(codexHookRun.status, 0, codexHookRun.stderr);
+    const codexHookOutput = JSON.parse(codexHookRun.stdout);
+    assert.equal(codexHookOutput.hookSpecificOutput.permissionDecision, "allow");
 
     const status = run(["status"], {
       env: {
@@ -1600,10 +1802,91 @@ describe("context-relay CLI", () => {
       },
     });
     assert.equal(uninstall.status, 0, uninstall.stderr);
-    assert.doesNotMatch(await readFile(path.join(claudeHome, "settings.json"), "utf8"), /context-relay hook claude/);
+    const claudeSettingsAfter = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeSettingsAfter.hooks, undefined);
     assert.doesNotMatch(await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8"), /@CONTEXT_RELAY\.md/);
     assert.doesNotMatch(await readFile(path.join(codexHome, "AGENTS.md"), "utf8"), /Context Relay managed block/);
-    assert.doesNotMatch(await readFile(path.join(codexHome, "hooks.json"), "utf8"), /context-relay hook codex/);
+    const codexHooksAfter = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexHooksAfter.hooks, undefined);
+  });
+
+  it("recognizes a legacy bare-name hook as already installed, does not duplicate it on re-init, and still uninstalls it", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = {
+      CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+      CONTEXT_RELAY_CODEX_HOME: codexHome,
+    };
+
+    // Simulate a hook installed by a pre-fix version of context-relay: the bare-name
+    // command that silently fails to resolve once the hook subprocess loses PATH.
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: [
+              { matcher: "Bash", hooks: [{ type: "command", command: "context-relay hook claude" }] },
+            ],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeFile(
+      path.join(codexHome, "hooks.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: "Bash",
+                hooks: [
+                  {
+                    type: "command",
+                    command: "context-relay hook codex",
+                    statusMessage: "Wrapping noisy shell output with Context Relay",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const status = run(["status"], { env });
+    assert.equal(status.status, 0, status.stderr);
+    const statusPayload = JSON.parse(status.stdout);
+    assert.equal(statusPayload.claude.automaticShellWrapping, true);
+    assert.equal(statusPayload.codex.automaticShellWrapping, true);
+
+    // Re-running init must not add a second, absolute-form entry alongside the legacy one.
+    const reinit = run(["init", "--all"], { env });
+    assert.equal(reinit.status, 0, reinit.stderr);
+    const claudeSettingsAfterReinit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeSettingsAfterReinit.hooks.PreToolUse.length, 1);
+    assert.equal(
+      claudeSettingsAfterReinit.hooks.PreToolUse[0].hooks[0].command,
+      "context-relay hook claude",
+    );
+    const codexHooksAfterReinit = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexHooksAfterReinit.hooks.PreToolUse.length, 1);
+    assert.equal(
+      codexHooksAfterReinit.hooks.PreToolUse[0].hooks[0].command,
+      "context-relay hook codex",
+    );
+
+    const uninstall = run(["uninstall", "--all"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const claudeSettingsAfterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(claudeSettingsAfterUninstall.hooks, undefined);
+    const codexHooksAfterUninstall = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8"));
+    assert.equal(codexHooksAfterUninstall.hooks, undefined);
   });
 
   it("ships required public packaging assets without local private paths", async () => {

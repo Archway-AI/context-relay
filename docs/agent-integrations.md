@@ -17,8 +17,11 @@ context-relay status
 
 What gets changed:
 
-- `~/.claude/settings.json` gets a Bash `PreToolUse` command hook:
-  `context-relay hook claude`
+- `~/.claude/settings.json` gets a Bash `PreToolUse` command hook that runs
+  `context-relay hook claude`, resolved at install time to an absolute, self-contained
+  command (the running Node binary plus this package's CLI script) so it still resolves
+  when the hook subprocess doesn't inherit the shell's PATH - e.g. an `npm link`ed local
+  clone on a PATH the hook's environment doesn't see.
 - `~/.claude/CONTEXT_RELAY.md` is written with short operating instructions.
 - `~/.claude/CLAUDE.md` gets an `@CONTEXT_RELAY.md` reference if missing.
 
@@ -61,8 +64,9 @@ What gets changed:
 
 - `~/.codex/CONTEXT_RELAY.md` is written with short operating instructions.
 - `~/.codex/AGENTS.md` gets a managed block that references the file.
-- `~/.codex/hooks.json` gets a Bash `PreToolUse` command hook:
-  `context-relay hook codex`
+- `~/.codex/hooks.json` gets a Bash `PreToolUse` command hook that runs
+  `context-relay hook codex`, resolved the same way as the Claude Code hook above: an
+  absolute, self-contained command rather than a bare name that depends on PATH.
 
 The hook uses the same conservative rewrite policy as the Claude Code hook. It
 only wraps finite allowlisted commands, skips interactive or mutating commands,
