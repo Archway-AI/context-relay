@@ -1782,6 +1782,102 @@ describe("context-relay CLI", () => {
     assert.equal(notWrapped.stdout, "");
   });
 
+  it("refuses to wrap `git -c alias.<x>=!<cmd> <x>` even though the aliased subcommand is allowlisted (Copilot finding A)", () => {
+    // `-c` is not behaviorally transparent for the rewrite gate the way `-C`/`--git-dir`
+    // are: it can redefine an alias to run an arbitrary, non-finite command.
+    // findGitSubcommandIndex correctly skips a leading `-c` to find "log" for STATS
+    // keying, but the SAFETY gate must not reuse that skip to call the command safe -
+    // `git -c alias.log=!sh log` actually runs `sh`, not `log`. Confirmed live before
+    // this fix: both forms below were WRAPPED (status 0).
+    const aliasSh = run(["rewrite", "git", "-c", "alias.log=!sh", "log"]);
+    assert.equal(aliasSh.status, 1);
+    assert.equal(aliasSh.stdout, "");
+
+    const aliasId = run(["rewrite", "git", "-c", "alias.log=!id", "log"]);
+    assert.equal(aliasId.status, 1);
+    assert.equal(aliasId.stdout, "");
+
+    // Plain `git log` (no `-c`) must still be wrapped - this is not a wholesale
+    // disabling of git wrapping.
+    const plainLog = run(["rewrite", "git", "log"]);
+    assert.equal(plainLog.status, 0, plainLog.stderr);
+    assert.equal(plainLog.stdout, "context-relay run --mode auto -- bash -lc 'git log'\n");
+
+    // `git -C <path> log` (a different, behaviorally-transparent global flag) must still
+    // be wrapped - the fix must not overreach into flags with no escape-hatch property.
+    const dashCLog = run(["rewrite", "git", "-C", "/tmp", "log"]);
+    assert.equal(dashCLog.status, 0, dashCLog.stderr);
+    assert.equal(dashCLog.stdout, "context-relay run --mode auto -- bash -lc 'git -C /tmp log'\n");
+
+    // A legitimate POST-subcommand `-c` (git log/show's own combined-diff flag, unrelated
+    // to global `-c name=value` config) must not be penalized - the reject is scoped to
+    // the leading-flags region only.
+    const logDashCFlag = run(["rewrite", "git", "log", "-c"]);
+    assert.equal(logDashCFlag.status, 0, logDashCFlag.stderr);
+    assert.equal(logDashCFlag.stdout, "context-relay run --mode auto -- bash -lc 'git log -c'\n");
+
+    // `-c` ahead of a NON-allowlisted subcommand must still be rejected (no regression -
+    // it was already rejected before this fix, just for the wrong reason).
+    const aliasPush = run(["rewrite", "git", "-c", "alias.push=!sh", "push"]);
+    assert.equal(aliasPush.status, 1);
+    assert.equal(aliasPush.stdout, "");
+  });
+
+  it("does not key or gate bare `git --exec-path log` as `git log` - it's a terminal query option, not a passthrough flag (Copilot finding H)", async () => {
+    const { commandKey } = await import("../lib/cli.js");
+
+    // `git --exec-path log` prints the exec-path and exits 0 WITHOUT ever running "log"
+    // (confirmed live: exit 0, stdout is the exec-path). It must not be keyed OR gated as
+    // `git log` - the finder must fall back to -1 (unrecognized), same as any other
+    // unrecognized flag shape.
+    assert.equal(commandKey(["git", "--exec-path", "log"]), "git");
+    const barePrecedesLog = run(["rewrite", "git", "--exec-path", "log"]);
+    assert.equal(barePrecedesLog.status, 1);
+    assert.equal(barePrecedesLog.stdout, "");
+
+    // The inline `=` form IS behaviorally transparent (confirmed live: `git
+    // --exec-path=/tmp log` actually ran `log`) and must still key/gate as `git log`.
+    assert.equal(commandKey(["git", "--exec-path=/tmp", "log"]), "git log");
+    const inlineForm = run(["rewrite", "git", "--exec-path=/tmp", "log"]);
+    assert.equal(inlineForm.status, 0, inlineForm.stderr);
+    assert.equal(
+      inlineForm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"git --exec-path=/tmp log"}'\n`,
+    );
+  });
+
+  it("refuses to wrap a git/npm command when a leading flag's value has a backslash-escaped space that naive whitespace-splitting miscounts (Copilot findings E/F)", () => {
+    // `git -C /tmp/repo\ log push` is a VALID invocation where the escaped space keeps
+    // "/tmp/repo log" as ONE argument to -C, making "push" - a MUTATING subcommand, not in
+    // SAFE_GIT_SUBCOMMANDS - the real subcommand. Naive whitespace-splitting still treats
+    // the escaped space as its own token boundary and lands subcommand detection on the
+    // safe-looking "log" instead. Reproduced before the fix: WRAPPED (status 0). Must now
+    // REFUSE.
+    const escapedGit = run(["rewrite", "git", "-C", "/tmp/repo\\ log", "push"]);
+    assert.equal(escapedGit.status, 1, escapedGit.stdout);
+    assert.equal(escapedGit.stdout, "");
+
+    // Same shape, npm family: `npm --prefix /tmp/app\ test uninstall pkg` naive-splits onto
+    // "test" as the apparent subcommand while the shell actually runs "uninstall" - not in
+    // FINITE_PACKAGE_SUBCOMMANDS. Reproduced before the fix: WRAPPED. Must now REFUSE.
+    const escapedNpm = run(["rewrite", "npm", "--prefix", "/tmp/app\\ test", "uninstall", "pkg"]);
+    assert.equal(escapedNpm.status, 1, escapedNpm.stdout);
+    assert.equal(escapedNpm.stdout, "");
+
+    // Ordinary (unescaped) forms must still wrap - this is not a wholesale disabling of
+    // git/npm-family wrapping, only a correction of word-boundary detection.
+    const plainGit = run(["rewrite", "git", "-C", "/tmp/repo", "log"]);
+    assert.equal(plainGit.status, 0, plainGit.stderr);
+    assert.equal(plainGit.stdout, "context-relay run --mode auto -- bash -lc 'git -C /tmp/repo log'\n");
+
+    const plainNpm = run(["rewrite", "npm", "--prefix", "./app", "run", "build"]);
+    assert.equal(plainNpm.status, 0, plainNpm.stderr);
+    assert.equal(
+      plainNpm.stdout,
+      `context-relay run --mode auto -- bash -lc '${"npm --prefix ./app run build"}'\n`,
+    );
+  });
+
   it("emits Claude Code hook updatedInput for eligible Bash commands", () => {
     const payload = {
       tool_input: {
@@ -2296,6 +2392,125 @@ describe("context-relay CLI", () => {
     const firstEntry = afterInit.hooks.PreToolUse[0];
     assert.equal(firstEntry.hooks.length, 1);
     assert.equal(firstEntry.hooks[0].command, foreignSameEntry);
+  });
+
+  it("does not recognize a 4-token echo-shaped foreign command as its own hook just because token[1]'s basename matches, and never removes it on uninstall (Copilot finding G)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // Both forms parse to 4 tokens with token[1]'s basename EXACTLY "context-relay.js" -
+    // the shape the earlier round's fix validates - but token[0] (the interpreter) is
+    // "echo", not an absolute path to a node executable. Reproduced before this fix: both
+    // MATCHED and would have been deleted by `uninstall`.
+    const echoQuoted = "echo '/tmp/context-relay.js' hook claude";
+    const echoBinary = "/bin/echo /tmp/context-relay.js hook claude";
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        {
+          hooks: {
+            PreToolUse: [echoQuoted, echoBinary].map((command) => ({
+              matcher: "Bash",
+              hooks: [{ type: "command", command }],
+            })),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const status = run(["status"], { env });
+    assert.equal(status.status, 0, status.stderr);
+    assert.equal(JSON.parse(status.stdout).claude.automaticShellWrapping, false);
+
+    // Neither echo-shaped hook is recognized as already-ours: init must add its OWN third
+    // entry rather than treating either as installed.
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterInit.hooks.PreToolUse.length, 3);
+    assert.ok(afterInit.hooks.PreToolUse.some((entry) => entry.hooks[0].command === echoQuoted));
+    assert.ok(afterInit.hooks.PreToolUse.some((entry) => entry.hooks[0].command === echoBinary));
+    const ownEntry = afterInit.hooks.PreToolUse.at(-1);
+    assert.match(ownEntry.hooks[0].command, /hook claude$/);
+    assert.match(ownEntry.hooks[0].command, /context-relay\.js/);
+
+    // The destructive path: uninstall must remove ONLY the entry it just added - both
+    // echo-shaped foreign entries survive.
+    const uninstall = run(["uninstall", "--claude"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const afterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(
+      afterUninstall.hooks.PreToolUse.map((entry) => entry.hooks[0].command),
+      [echoQuoted, echoBinary],
+    );
+
+    // Companion check (not a new install): the cross-install migration case - a DIFFERENT
+    // node binary name ("some-other-node") at a DIFFERENT directory than this test's own
+    // resolveCliScriptPath() - must still be recognized. This is exercised end to end by
+    // "recognizes a hook pointing at a DIFFERENT install location as its own" above; assert
+    // the same property directly here too, alongside the echo rejections, so a future
+    // regression in either direction fails in the same test file section.
+    const { isManagedHookCommand } = await import("../lib/integrations.js");
+    assert.equal(
+      isManagedHookCommand(
+        "'/usr/bin/some-other-node' '/dead/clone/path/bin/context-relay.js' hook claude",
+        "claude",
+      ),
+      true,
+    );
+    assert.equal(isManagedHookCommand(echoQuoted, "claude"), false);
+    assert.equal(isManagedHookCommand(echoBinary, "claude"), false);
+  });
+
+  it("survives foreign PreToolUse entries byte-identical across init AND uninstall, including ones with an empty hooks array or a non-'Bash' matcher (Copilot finding D)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // The exact three-entry seed from the finding: a non-"Bash" matcher with an empty
+    // hooks array, a "Bash" entry holding a foreign (unrelated) command, and another
+    // non-"Bash" matcher with an empty hooks array. None of these should ever be modified
+    // by stripManagedPreToolUseEntries - "Agent|Task" and "Write" because their matcher
+    // isn't "Bash" at all, the "Bash" entry because its one hook isn't ours.
+    const seed = {
+      hooks: {
+        PreToolUse: [
+          { matcher: "Agent|Task", hooks: [] },
+          { matcher: "Bash", hooks: [{ type: "command", command: "/usr/bin/some-other-tool --flag" }] },
+          { matcher: "Write", hooks: [] },
+        ],
+      },
+    };
+    await writeFile(path.join(claudeHome, "settings.json"), `${JSON.stringify(seed, null, 2)}\n`);
+
+    // BEFORE the fix: init deleted the "Agent|Task" and "Write" entries even though
+    // neither was ever touched by the managed-hook filter (reproduced live: 3 entries ->
+    // 2, both survivors reported as "Bash" - the pre-existing foreign "Bash" entry plus
+    // the newly appended own entry).
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(
+      afterInit.hooks.PreToolUse.map((entry) => entry.matcher),
+      ["Agent|Task", "Bash", "Write", "Bash"],
+    );
+    assert.deepEqual(afterInit.hooks.PreToolUse[0], seed.hooks.PreToolUse[0]);
+    assert.deepEqual(afterInit.hooks.PreToolUse[1], seed.hooks.PreToolUse[1]);
+    assert.deepEqual(afterInit.hooks.PreToolUse[2], seed.hooks.PreToolUse[2]);
+    const ownEntry = afterInit.hooks.PreToolUse[3];
+    assert.match(ownEntry.hooks[0].command, /hook claude$/);
+
+    // uninstall must ALSO leave the three foreign entries exactly as they were, removing
+    // only the one entry init just added - covering the removal code path
+    // (stripManagedPreToolUseEntries via removeClaudeHook) as well as the upsert path
+    // (via mergeClaudeSettings) exercised by init above.
+    const uninstall = run(["uninstall", "--claude"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const afterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(afterUninstall.hooks.PreToolUse, seed.hooks.PreToolUse);
   });
 
   it("ships required public packaging assets without local private paths", async () => {
