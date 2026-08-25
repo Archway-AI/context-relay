@@ -1977,6 +1977,43 @@ describe("context-relay CLI", () => {
     }
   });
 
+  it("Finding 5: a vertical tab inside a directory token does not create an extra bash-equivalent word", () => {
+    // JS `\s` matches vertical tab, form feed, and Unicode whitespace, none of which are in
+    // bash's default IFS (space, tab, newline). "repo<VT>log" is ONE bash word (the vertical
+    // tab has no separating meaning to bash), so `git -C repo<VT>log push` really runs a
+    // mutating push from a weirdly-named directory - but splitting on JS `\s` turns it into
+    // FIVE tokens (git, -C, repo, log, push), landing "log" at the position the safe
+    // `git -C <dir> log` shape checks, so the real "push" subcommand hides behind it.
+    const verticalTabDirectory = `repolog`;
+    const controlCharSplit = run(["rewrite", "git", "-C", verticalTabDirectory, "push"]);
+    assert.equal(controlCharSplit.status, 1, controlCharSplit.stdout);
+    assert.equal(controlCharSplit.stdout, "");
+  });
+
+  it("Finding 6: ambiguousPreSentinelHooks does not surface commands with no plausible relation to this installer's script", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // Four tokens, ends in "hook claude" - satisfies the old shape check completely, but
+    // "context-relay" is a bare relative token, not an absolute path ending in this
+    // package's actual script basename. This tool never generated this and never will.
+    const unrelatedFourToken = "echo context-relay hook claude";
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: unrelatedFourToken }] }] } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const status = run(["status"], { env });
+    assert.equal(status.status, 0, status.stderr);
+    const statusPayload = JSON.parse(status.stdout);
+    assert.deepEqual(statusPayload.claude.ambiguousPreSentinelHooks, []);
+  });
+
   it("still wraps the exact shapes the narrowed gate keeps: plain git log with trailing flags, git -C <dir> log, npm run build, npm test", () => {
     // The compression-cost claim this rewrite rests on: real traffic is overwhelmingly
     // `git log/diff/status/show` and `npm test`-shaped commands, and none of those lose
