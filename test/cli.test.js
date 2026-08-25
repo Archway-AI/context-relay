@@ -1939,6 +1939,44 @@ describe("context-relay CLI", () => {
     assert.equal(dashCPush.stdout, "");
   });
 
+  it("Finding 1: refuses question-mark pathname expansion before matching the safe git -C shape", () => {
+    // `????` is one pre-expansion word, so the command looks exactly like the allowed
+    // `git -C <dir> log` four-token shape. Bash may expand it to several filenames,
+    // changing both argv cardinality and which word git treats as its subcommand.
+    const questionGlob = run(["rewrite", "git", "-C", "????", "log"]);
+    assert.equal(questionGlob.status, 1, questionGlob.stdout);
+    assert.equal(questionGlob.stdout, "");
+  });
+
+  it("Finding 1: refuses bracket pathname expansion before matching the safe git -C shape", () => {
+    // Bracket expressions are the third bash pathname-expansion form alongside `*` and
+    // `?`. Refuse both delimiters independently as well as a complete expression so a
+    // malformed or partial pattern cannot cross the gate either.
+    for (const riskyDirectory of ["[repo]", "[repo", "repo]"]) {
+      const bracketGlob = run(["rewrite", "git", "-C", riskyDirectory, "log"]);
+      assert.equal(bracketGlob.status, 1, `${riskyDirectory}: ${bracketGlob.stdout}`);
+      assert.equal(bracketGlob.stdout, "");
+    }
+  });
+
+  it("Finding 4: refuses the demonstrated redirection bypass of the safe git -C shape", () => {
+    // `git -C 2>f log push` tokenizes to the exact allowed `git -C <dir> log` four-token
+    // shape, with `2>f` masquerading as the directory argument. Bash strips `2>f` as a
+    // file-descriptor-2 redirect before building argv, leaving the real command
+    // `git -C log push` - a mutating `git push`, not the read this shape was allowed for.
+    const fdRedirect = run(["rewrite", "git", "-C", "2>f", "log", "push"]);
+    assert.equal(fdRedirect.status, 1, fdRedirect.stdout);
+    assert.equal(fdRedirect.stdout, "");
+  });
+
+  it("Finding 4: refuses bare, doubled, and fd-duplication redirection forms before matching any safe shape", () => {
+    for (const riskyDirectory of [">out", "<in", ">>out", "1>out", "&>out", "<&3", ">&2"]) {
+      const redirected = run(["rewrite", "git", "-C", riskyDirectory, "log"]);
+      assert.equal(redirected.status, 1, `${riskyDirectory}: ${redirected.stdout}`);
+      assert.equal(redirected.stdout, "");
+    }
+  });
+
   it("still wraps the exact shapes the narrowed gate keeps: plain git log with trailing flags, git -C <dir> log, npm run build, npm test", () => {
     // The compression-cost claim this rewrite rests on: real traffic is overwhelmingly
     // `git log/diff/status/show` and `npm test`-shaped commands, and none of those lose
@@ -2182,7 +2220,7 @@ describe("context-relay CLI", () => {
     assert.equal(codexHooksAfter.hooks, undefined);
   });
 
-  it("recognizes a legacy bare-name hook as already installed, does not duplicate it on re-init, and still uninstalls it", async () => {
+  it("Finding 3: reports legacy bare-name hooks as installed but not automatically wrapping, then healthy after re-init, for Claude and Codex", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
     tempDirs.push(claudeHome, codexHome);
@@ -2234,10 +2272,13 @@ describe("context-relay CLI", () => {
     const status = run(["status"], { env });
     assert.equal(status.status, 0, status.stderr);
     const statusPayload = JSON.parse(status.stdout);
-    assert.equal(statusPayload.claude.automaticShellWrapping, true);
-    assert.equal(statusPayload.codex.automaticShellWrapping, true);
-    // Change 1: status must report the legacy bare form as present-but-upgradeable, not
-    // silently equivalent to the current sentinel form.
+    // A legacy entry is still recognized as installed so init/uninstall can migrate it,
+    // but it is not a reliable automatic wrapper: detached hooks may not resolve the bare
+    // `context-relay` executable on PATH. Both providers must expose that distinction.
+    assert.equal(statusPayload.claude.hookInstalled, true);
+    assert.equal(statusPayload.codex.hookInstalled, true);
+    assert.equal(statusPayload.claude.automaticShellWrapping, false);
+    assert.equal(statusPayload.codex.automaticShellWrapping, false);
     assert.equal(statusPayload.claude.hookUpgradeable, true);
     assert.equal(statusPayload.codex.hookUpgradeable, true);
 
@@ -2260,6 +2301,16 @@ describe("context-relay CLI", () => {
     assert.notEqual(codexReinitCommand, "context-relay hook codex");
     assert.match(codexReinitCommand, /hook codex --managed-by=context-relay$/);
     assert.match(codexReinitCommand, /context-relay\.js/);
+
+    // Re-init replaces both legacy entries with the absolute-path sentinel form. Status
+    // can now report automatic wrapping as healthy for both providers.
+    const statusAfterReinit = run(["status"], { env });
+    assert.equal(statusAfterReinit.status, 0, statusAfterReinit.stderr);
+    const statusAfterReinitPayload = JSON.parse(statusAfterReinit.stdout);
+    assert.equal(statusAfterReinitPayload.claude.automaticShellWrapping, true);
+    assert.equal(statusAfterReinitPayload.codex.automaticShellWrapping, true);
+    assert.equal(statusAfterReinitPayload.claude.hookUpgradeable, false);
+    assert.equal(statusAfterReinitPayload.codex.hookUpgradeable, false);
 
     const uninstall = run(["uninstall", "--all"], { env });
     assert.equal(uninstall.status, 0, uninstall.stderr);
@@ -2562,6 +2613,37 @@ describe("context-relay CLI", () => {
       preSentinelClaude,
       "uninstall must never remove a pre-sentinel hook, same-path or not - only init self-heals it",
     );
+  });
+
+  it("Finding 2: init does not supersede an echo-interpreter entry that names this install's exact script path", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // Preserve the exact generated script-path token while replacing only the interpreter
+    // token. This command has the pre-sentinel four-token shape, but it is definitionally
+    // foreign: resolveHookCommand has only ever emitted process.execPath, never `echo`.
+    const { resolveHookCommand, shellQuote } = await import("../lib/integrations.js");
+    const echoHook = resolveHookCommand("claude")
+      .replace(shellQuote(process.execPath), "echo")
+      .replace(/ --managed-by=context-relay$/, "");
+    assert.match(echoHook, /^echo .* hook claude$/);
+
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify(
+        { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: echoHook }] }] } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.equal(afterInit.hooks.PreToolUse.length, 2, "foreign echo hook must survive beside the fresh hook");
+    assert.equal(afterInit.hooks.PreToolUse[0].hooks[0].command, echoHook);
+    assert.match(afterInit.hooks.PreToolUse[1].hooks[0].command, /hook claude --managed-by=context-relay$/);
   });
 
   it("DEFECT FIX regression guard: uninstall still refuses to remove the exact impersonation shape this narrowing exists to close, even now that init recognizes a same-path pre-sentinel hook", async () => {
