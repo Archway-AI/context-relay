@@ -26,7 +26,7 @@ What gets changed:
 - `~/.claude/CLAUDE.md` gets an `@CONTEXT_RELAY.md` reference if missing.
 
 The hook rewrites allowlisted finite commands such as `git status`, `git diff`,
-`npm test`, `npm run build`, `pnpm test`, `rg`, `grep`, and type-check/build
+`git log`, `npm test`, `npm run build`, `pnpm test`, and type-check/build
 commands into:
 
 ```bash

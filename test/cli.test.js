@@ -2150,6 +2150,119 @@ describe("context-relay CLI", () => {
     assert.equal(isManagedHookCommand("echo hook claude --managed-by=context-relay", "claude"), true);
   });
 
+  it("Round 8: ownership matching honors bash's blank set, not JS `\\s` - interior AND edge (Copilot round-8 finding)", async () => {
+    const { isManagedHookCommand, classifyHookCommand } = await import("../lib/integrations.js");
+    const VT = "\v";
+    const FF = "\f";
+    const NBSP = "\u00a0";
+
+    // The finding: parseShellQuotedTokens split on JS `\s`, so a byte bash keeps INSIDE a
+    // word was read as a token boundary. `echo hook<VT>claude --managed-by=context-relay`
+    // tokenized to five words ending in the exact sentinel triple and classified "managed"
+    // - while bash runs `echo 'hook<VT>claude' --managed-by=context-relay`, four words, a
+    // different command entirely. Verified against the real shell before the fix:
+    //   bash -c 'v=$(printf "a\vb"); set -- $v; echo $#'  ->  1
+    assert.equal(
+      isManagedHookCommand(`echo hook${VT}claude --managed-by=context-relay`, "claude"),
+      false,
+    );
+    assert.equal(
+      isManagedHookCommand(`echo hook${FF}claude --managed-by=context-relay`, "claude"),
+      false,
+    );
+    assert.equal(
+      isManagedHookCommand(`echo hook${NBSP}claude --managed-by=context-relay`, "claude"),
+      false,
+    );
+
+    // The EDGE half of the same bug, which the tokenizer fix alone does not close:
+    // classifyHookCommand/matchPreSentinelHookShape called JS .trim(), which also strips
+    // VT/FF/NBSP - so a leading VT was erased before the exact legacy-string comparison and
+    // the command was claimed as ours. bash would look for a program literally named
+    // "<VT>context-relay"; that program need not exist for the DELETION to fire.
+    assert.equal(isManagedHookCommand(`${VT}context-relay hook claude`, "claude"), false);
+    assert.equal(isManagedHookCommand(`context-relay hook claude${VT}`, "claude"), false);
+    assert.equal(isManagedHookCommand(`${NBSP}context-relay hook claude`, "claude"), false);
+    assert.equal(
+      isManagedHookCommand(`echo hook claude --managed-by=context-relay${VT}`, "claude"),
+      false,
+    );
+
+    // Ordinary space and tab ARE bash blanks and must still be trimmed and split on. The
+    // fix loses no generated or documented owned form: every release emitted its tokens
+    // space-separated, and quoted path bytes are copied verbatim by the quote branch, so
+    // nothing we ever wrote stops being recognized. (It is not literally "recognizes a
+    // strict subset": treating a non-ASCII blank as a literal byte can newly surface an
+    // unquoted pre-sentinel path containing one to the init-only shape detector, where the
+    // outcome is an exact same-path comparison or a non-destructive status report.)
+    assert.equal(classifyHookCommand("  context-relay hook claude\t", "claude"), "legacy");
+    assert.equal(
+      classifyHookCommand("\techo hook claude --managed-by=context-relay  ", "claude"),
+      "managed",
+    );
+    // Tab as an INTERIOR separator too, so narrowing SHELL_BLANK_PATTERN further (to just
+    // / /) would be caught here rather than silently shipping.
+    assert.equal(
+      classifyHookCommand("echo\thook\tclaude\t--managed-by=context-relay", "claude"),
+      "managed",
+    );
+  });
+
+  it("Round 9: `git branch` never wraps - trailing arguments turn it into a mutation (Copilot round-9 finding A)", async () => {
+    const { rewriteShellCommand } = await import("../lib/integrations.js");
+
+    // Every one of these matched SAFE_GIT_SUBCOMMANDS via `parts[1]` and was WRAPPED before
+    // this change, despite the documented contract that mutating commands are skipped.
+    for (const command of [
+      "git branch -D old-feature",
+      "git branch new-branch-name",
+      "git branch -m old new",
+      "git -C /repo branch -D old",
+    ]) {
+      assert.equal(rewriteShellCommand(command, {}).changed, false, command);
+    }
+    // The read-only forms stop wrapping too - that is the accepted trade of deleting the
+    // set member rather than growing a read-only flag grammar for it.
+    assert.equal(rewriteShellCommand("git branch", {}).changed, false);
+    assert.equal(rewriteShellCommand("git branch --list", {}).changed, false);
+
+    // The remaining members are unaffected: they are read-only under arbitrary trailing
+    // arguments, which is the criterion `branch` violated.
+    assert.equal(rewriteShellCommand("git log --oneline -20", {}).changed, true);
+    assert.equal(rewriteShellCommand("git -C /repo status", {}).changed, true);
+  });
+
+  it("Round 8: a VT-bearing foreign hook survives init --claude byte-identical", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    tempDirs.push(claudeHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome };
+
+    // End-to-end proof for the destructive half of the finding. Reproduced live before the
+    // fix: this entry was classified as ours by stripManagedPreToolUseEntries and did NOT
+    // survive init - a silent deletion of foreign configuration during an ordinary install.
+    const foreign = `echo hook\vclaude --managed-by=context-relay`;
+    const seed = {
+      hooks: {
+        PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: foreign }] }],
+      },
+    };
+    await writeFile(path.join(claudeHome, "settings.json"), `${JSON.stringify(seed, null, 2)}\n`);
+
+    const init = run(["init", "--claude"], { env });
+    assert.equal(init.status, 0, init.stderr);
+    const afterInit = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(afterInit.hooks.PreToolUse[0], seed.hooks.PreToolUse[0]);
+    // Our own entry is still appended alongside it - the fix narrows recognition, it does
+    // not break installation.
+    assert.match(afterInit.hooks.PreToolUse.at(-1).hooks[0].command, /--managed-by=context-relay$/);
+
+    // And uninstall removes only ours, leaving the VT entry untouched.
+    const uninstall = run(["uninstall", "--claude"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    const afterUninstall = JSON.parse(await readFile(path.join(claudeHome, "settings.json"), "utf8"));
+    assert.deepEqual(afterUninstall.hooks.PreToolUse, seed.hooks.PreToolUse);
+  });
+
   it("installs Claude and Codex hooks without touching real homes, and the written hook command resolves with no PATH", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
