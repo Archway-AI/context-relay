@@ -17,13 +17,16 @@ context-relay status
 
 What gets changed:
 
-- `~/.claude/settings.json` gets a Bash `PreToolUse` command hook:
-  `context-relay hook claude`
+- `~/.claude/settings.json` gets a Bash `PreToolUse` command hook that runs
+  `context-relay hook claude`, resolved at install time to an absolute, self-contained
+  command (the running Node binary plus this package's CLI script) so it still resolves
+  when the hook subprocess doesn't inherit the shell's PATH - e.g. an `npm link`ed local
+  clone on a PATH the hook's environment doesn't see.
 - `~/.claude/CONTEXT_RELAY.md` is written with short operating instructions.
 - `~/.claude/CLAUDE.md` gets an `@CONTEXT_RELAY.md` reference if missing.
 
 The hook rewrites allowlisted finite commands such as `git status`, `git diff`,
-`npm test`, `npm run build`, `pnpm test`, `rg`, `grep`, and type-check/build
+`git log`, `npm test`, `npm run build`, `pnpm test`, and type-check/build
 commands into:
 
 ```bash
@@ -31,7 +34,13 @@ context-relay run --mode auto -- bash -lc '<original command>'
 ```
 
 It skips commands that are interactive, long-running, auth-shaped, already
-wrapped, mutating, or too complex to rewrite safely. Examples include `ssh`,
+wrapped, mutating, or too complex to rewrite safely. **Known exceptions:** a few
+allowlisted git subcommands accept flags that write a file or run a command -
+`git grep -O<cmd>` / `--open-files-in-pager=<cmd>`, and `--output=<file>` on
+`git diff` / `log` / `show`. These are wrapped today despite being mutating;
+tracked in ARC-2109. Wrapping never changes what runs (a refusal passes the
+command through unmodified rather than blocking it), so the effect is that such
+a command's output is compressed rather than shown in full. Examples include `ssh`,
 `sudo`, `curl`, `gh auth`, `git push`, `git commit`, `npm init`,
 `npm run dev`, `jest --watch`, `claude`, `codex`, shell control operators,
 heredocs, command substitutions, or multi-line shell input.
@@ -61,11 +70,13 @@ What gets changed:
 
 - `~/.codex/CONTEXT_RELAY.md` is written with short operating instructions.
 - `~/.codex/AGENTS.md` gets a managed block that references the file.
-- `~/.codex/hooks.json` gets a Bash `PreToolUse` command hook:
-  `context-relay hook codex`
+- `~/.codex/hooks.json` gets a Bash `PreToolUse` command hook that runs
+  `context-relay hook codex`, resolved the same way as the Claude Code hook above: an
+  absolute, self-contained command rather than a bare name that depends on PATH.
 
 The hook uses the same conservative rewrite policy as the Claude Code hook. It
-only wraps finite allowlisted commands, skips interactive or mutating commands,
+only wraps finite allowlisted commands, skips interactive or mutating commands
+(with the git-flag exceptions noted above),
 and returns Codex's required `permissionDecision: "allow"` with `updatedInput`
 when it rewrites a supported tool call.
 
