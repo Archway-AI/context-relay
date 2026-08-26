@@ -2208,6 +2208,96 @@ describe("context-relay CLI", () => {
     );
   });
 
+  it("Round 11: a bare token carrying shell syntax is never claimed as ours (Copilot round-11 finding)", async () => {
+    const { isManagedHookCommand, classifyHookCommand, resolveHookCommand } = await import("../lib/integrations.js");
+    const S = "--managed-by=context-relay";
+
+    // Each of these ends in the exact sentinel triple, so the suffix match succeeded and the
+    // command was CLAIMED - and uninstall deletes what it claims. Bash does not word-split
+    // any of them the way this parser did: `/opt/my\ hook` is ONE executable token to bash.
+    for (const token of [
+      "/opt/my\\",      // backslash-escaped space
+      "/opt/x;",         // control operator
+      "/opt/x|",
+      "/opt/`x`",        // command substitution
+      '/opt/"x',         // quote
+      "/opt/$HOME",      // variable expansion
+      "/opt/*",          // glob
+      "~/x",             // tilde expansion
+      "/opt/{a,b}",      // brace expansion
+      "/opt/?",
+      "/opt/!x",
+    ]) {
+      assert.equal(isManagedHookCommand(`${token} hook claude ${S}`, "claude"), false, token);
+    }
+
+    // Copilot's suggested remedy was a DENYLIST, /[\\'"\r\n;&|<>()#`]/. It closes the first
+    // five above and misses the last six - measured, not assumed. Recorded here so the
+    // rejection is not re-litigated: naming dangerous characters fails OPEN on the one you
+    // forgot, which is the same argument ARC-2109 uses against dangerous-flag denylists.
+    const copilotDenylist = /[\\'"\r\n;&|<>()#`]/;
+    const missedByDenylist = ["/opt/$HOME", "/opt/*", "~/x", "/opt/{a,b}", "/opt/?", "/opt/!x"];
+    for (const token of missedByDenylist) {
+      assert.equal(copilotDenylist.test(token), false, `denylist unexpectedly caught ${token}`);
+      assert.equal(isManagedHookCommand(`${token} hook claude ${S}`, "claude"), false, token);
+    }
+
+    // Strictly narrowing - everything we actually emit is still claimed. The interpreter and
+    // script path go through shellQuote's QUOTED branch, so arbitrary bytes there (spaces,
+    // an nvm version, a relocated repo) are unaffected by the bare-token allowlist.
+    assert.equal(isManagedHookCommand(resolveHookCommand("claude"), "claude"), true);
+    assert.equal(isManagedHookCommand(resolveHookCommand("codex"), "codex"), true);
+    assert.equal(classifyHookCommand("context-relay hook claude", "claude"), "legacy");
+    assert.equal(
+      classifyHookCommand(`'/opt/my node' '/opt/some path/cli.js' hook claude ${S}`, "claude"),
+      "managed",
+    );
+  });
+
+  it("Round 11: every string the tokenizer ACCEPTS word-splits identically in bash", async () => {
+    // The invariant that replaces the twice-wrong "class closed by enumeration" claim. It is
+    // bounded on purpose: it quantifies over the strings this function accepts, and says
+    // nothing about the rest of the system. Anything off that domain returns null and fails
+    // closed. Verified differentially against the real shell rather than argued.
+    const { parseShellQuotedTokens } = await import("../lib/integrations.js");
+    const candidates = [
+      "context-relay hook claude",
+      "hook claude --managed-by=context-relay",
+      "'/usr/bin/node' '/opt/cli.js' hook claude --managed-by=context-relay",
+      "'/opt/my node' '/opt/some path/cli.js' hook codex --managed-by=context-relay",
+      "/usr/local/bin/context-relay hook claude",
+      "a.b_c/d=e-f",
+      "  padded   with   blanks  ",
+      "'it'\\''s' hook claude",
+      // Every one of these must be REFUSED, so they never reach the bash comparison.
+      "/opt/my\\ hook claude",
+      "/opt/$HOME hook claude",
+      "/opt/* hook claude",
+      "~/x hook claude",
+      "/opt/{a,b} hook claude",
+      "/opt/x; hook claude",
+      "/opt/`x` hook claude",
+    ];
+
+    let accepted = 0;
+    for (const candidate of candidates) {
+      const tokens = parseShellQuotedTokens(candidate);
+      if (tokens === null) {
+        continue; // fails closed - outside the accepted domain, nothing to prove
+      }
+      accepted += 1;
+      // Recover what bash ACTUALLY produces as argv for the same string.
+      const printed = spawnSync("bash", ["-c", `for w in ${candidate}; do printf '%s\\0' "$w"; done`], {
+        encoding: "utf8",
+      });
+      assert.equal(printed.status, 0, `${candidate}: ${printed.stderr}`);
+      const bashWords = printed.stdout.split("\0").slice(0, -1);
+      assert.deepEqual(tokens, bashWords, `tokenizer disagreed with bash on: ${candidate}`);
+    }
+    // Guard against the invariant passing vacuously by refusing everything.
+    assert.ok(accepted >= 8, `expected the accepted domain to be non-trivial, got ${accepted}`);
+  });
+
   it("Round 10: discover describes a legacy hook as needing migration, not as uninstalled (Copilot round-10 finding)", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
