@@ -2208,6 +2208,44 @@ describe("context-relay CLI", () => {
     );
   });
 
+  it("Round 10: discover describes a legacy hook as needing migration, not as uninstalled (Copilot round-10 finding)", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = { CONTEXT_RELAY_CLAUDE_HOME: claudeHome, CONTEXT_RELAY_CODEX_HOME: codexHome };
+
+    // Seed the legacy bare form on BOTH providers. status reports hookInstalled: true and
+    // hookUpgradeable: true for these, but automaticShellWrapping: false (round 7 split the
+    // flag because the bare form is PATH-dependent and may not resolve). discover branched
+    // only on automaticShellWrapping, so it told the user the hook was "not installed" -
+    // contradicting status for the one state where they disagree.
+    await writeFile(
+      path.join(claudeHome, "settings.json"),
+      `${JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "context-relay hook claude" }] }] } }, null, 2)}\n`,
+    );
+    await writeFile(
+      path.join(codexHome, "hooks.json"),
+      `${JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "context-relay hook codex" }] }] } }, null, 2)}\n`,
+    );
+
+    const status = JSON.parse(run(["status", "--json"], { env }).stdout);
+    assert.equal(status.claude.hookInstalled, true);
+    assert.equal(status.claude.hookUpgradeable, true);
+    assert.equal(status.claude.automaticShellWrapping, false);
+
+    const payload = JSON.parse(run(["discover", "--json"], { env }).stdout);
+    const claudeLine = payload.setup.find((item) => item.startsWith("Claude Code hook"));
+    const codexLine = payload.setup.find((item) => item.startsWith("Codex hook"));
+    // Both providers, so the wording cannot drift apart between them.
+    for (const line of [claudeLine, codexLine]) {
+      assert.ok(line, "expected a setup line for each provider");
+      assert.match(line, /needs migration/);
+      assert.doesNotMatch(line, /is not installed/);
+      // The remedy was already correct and must not change.
+      assert.match(line, /context-relay init --(claude|codex)/);
+    }
+  });
+
   it("Round 9: `git branch` never wraps - trailing arguments turn it into a mutation (Copilot round-9 finding A)", async () => {
     const { rewriteShellCommand } = await import("../lib/integrations.js");
 
