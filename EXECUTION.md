@@ -44,7 +44,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
-| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR open after failing-first allocation proof and full local validation; CI/current-head Copilot review pending. |
+| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; held by the three-PR WIP cap; serialize after F10 and F8. |
@@ -73,7 +73,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#15](https://github.com/Archway-AI/context-relay/pull/15) | 1 | re-requested 2026-08-30T22:01:42Z for `2157fc5` | none | running on latest head; prior head green | 1 | 0 | 0 | awaiting-review |
-| [#16](https://github.com/Archway-AI/context-relay/pull/16) | 0 | requested 2026-08-30T22:03:35Z; awaiting review of `42190ba` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 
 Review log (append-only):
 
@@ -92,6 +92,7 @@ Review log (append-only):
 - 2026-08-30T17:01:42-0500 — PR #15 round 1 at `2157fc56b96d77ef6eeae8a4cffd897649e79889`: accepted Copilot's one comment that existing empty files were conflated with ENOENT; fixed it in `2157fc5`, extended the byte-identity matrix to empty/whitespace files, reran 149/149 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
 - 2026-08-30T17:02:56-0500 — PR #16 round 0 snapshot at `42190ba3506e9df64943c1d7925e840e2ae7196e`: local validation green; GitHub CI starting; Copilot review not yet requested.
 - 2026-08-30T17:03:44-0500 — PR #16 round 0 follow-up at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot request confirmed by the GitHub timeline at 2026-08-30T22:03:35Z; both CI jobs green; awaiting current-head Copilot review.
+- 2026-08-30T17:06:35-0500 — PR #16 round 1 at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot reviewed both changed files and generated zero comments; 0 unresolved threads; no human reviews; both CI jobs green. Marked `review-clean` and left for human approve-and-merge.
 
 ## Session log (append-only)
 
