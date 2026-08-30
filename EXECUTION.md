@@ -40,7 +40,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
 | F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | merged | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; merged as `35d3a94` on 2026-08-30. F2 dependency gate cleared. |
-| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | in-progress | `audit/ARC-2314-f2-package-release-gate` | — | Rank 2; fully re-verified against merged `origin/main` at `ab6249e`; isolated worktree created. |
+| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | pr-open | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; scope-exact PR open; local validation green; CI and current-head Copilot review pending. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | queued | — | — | Rank 5; held by the three-PR WIP cap and serialized behind F9's overlapping `lib/integrations.js` scope. |
@@ -71,6 +71,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#11](https://github.com/Archway-AI/context-relay/pull/11) | 1 | completed on latest head `7ac4a92`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
+| [#14](https://github.com/Archway-AI/context-relay/pull/14) | 0 | requested 2026-08-30T21:46:14Z; awaiting review of `1317966` | none | running (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -82,6 +83,7 @@ Review log (append-only):
 - 2026-08-30T14:39:01-0500 — PR #12 round 1 at `8ee00ced69b627401f8665c0ff61689207d4cd28`: latest-head Copilot review completed with 0 actionable comments; 0 unresolved threads; no human reviews; CI green. Marked `review-clean`.
 - 2026-08-30T14:39:01-0500 — PR #13 round 1 at `619d8808bbb502d42878c1392d9e12e35f6b0138`: latest-head Copilot review completed with 0 actionable comments; 0 unresolved threads; no human reviews; CI green. Marked `review-clean`.
 - 2026-08-30T14:41:13-0500 — PR #11 round 1 re-review completed on `7ac4a92ee63fecbe04fd17f97d332fd646a9bbcc` with 0 new comments. Final snapshot: 0 unresolved threads, no pending or blocking human review, both CI jobs green, merge state clean. Marked `review-clean`; all three target PRs are ready for human approve-and-merge.
+- 2026-08-30T16:46:36-0500 — PR #14 round 0 snapshot at `13179661b6621985bd283bf3eef388e9c9d4111a`: no review feedback; CI running; Copilot request confirmed by the GitHub timeline at 2026-08-30T21:46:14Z.
 
 ## Session log (append-only)
 
@@ -108,3 +110,4 @@ Review log (append-only):
 - 2026-08-30T16:40:54-0500 — Resumed execution after the human merged PRs #11, #12, and #13. Verified `origin/main` at `ab6249e6416b37fdd76d58c8793f7549d3d3fbd0`; Linear already reflects ARC-2313, ARC-2315, and ARC-2316 as Done. Marked F1/F9/F3 merged and cleared the F2/F6/F7 gates.
 - 2026-08-30T16:40:54-0500 — Set F2 / ARC-2314 to `verifying` against merged `origin/main`; no finding branch exists yet.
 - 2026-08-30T16:42:05-0500 — F2 fully holds after the first tranche merged: `prepublishOnly` still runs only tests, while CI and publish duplicate test/quickstart/eval/pack. Advanced F2 to `in-progress` on `audit/ARC-2314-f2-package-release-gate` from `origin/main` at `ab6249e`.
+- 2026-08-30T16:46:36-0500 — Opened PR #14 for F2 at `1317966` after reproducing the false-green publish path, proving the corrected failure path, passing `release:check` on Node 22.14.0 and Node 24, and verifying direct publish invokes the behavioral lifecycle gate. F2 is now `pr-open`; Linear ARC-2314 is In Review.
