@@ -43,7 +43,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | pr-open | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; scope-exact PR open; local validation green; CI and current-head Copilot review pending. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
-| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | queued | — | — | Rank 5; held by the three-PR WIP cap and serialized behind F9's overlapping `lib/integrations.js` scope. |
+| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | verifying | — | — | Rank 5; F9 collision gate cleared; re-verifying against merged `origin/main` at `ab6249e`. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | queued | — | — | Rank 6; held by the three-PR WIP cap. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
@@ -111,3 +111,4 @@ Review log (append-only):
 - 2026-08-30T16:40:54-0500 — Set F2 / ARC-2314 to `verifying` against merged `origin/main`; no finding branch exists yet.
 - 2026-08-30T16:42:05-0500 — F2 fully holds after the first tranche merged: `prepublishOnly` still runs only tests, while CI and publish duplicate test/quickstart/eval/pack. Advanced F2 to `in-progress` on `audit/ARC-2314-f2-package-release-gate` from `origin/main` at `ab6249e`.
 - 2026-08-30T16:46:36-0500 — Opened PR #14 for F2 at `1317966` after reproducing the false-green publish path, proving the corrected failure path, passing `release:check` on Node 22.14.0 and Node 24, and verifying direct publish invokes the behavioral lifecycle gate. F2 is now `pr-open`; Linear ARC-2314 is In Review.
+- 2026-08-30T16:47:06-0500 — Set F6 / ARC-2317 to `verifying` after F9 merged and cleared the `lib/integrations.js` collision gate.
