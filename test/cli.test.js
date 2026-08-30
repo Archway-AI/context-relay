@@ -2570,6 +2570,7 @@ describe("context-relay CLI", () => {
       ["array", "[]\n"],
       ["string", '"foreign"\n'],
       ["number", "42\n"],
+      ["array hook container", '{"foreign":true,"hooks":[]}\n'],
     ];
     const providers = [
       ["claude", "settings.json"],
