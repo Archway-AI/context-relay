@@ -182,6 +182,51 @@ describe("context-relay CLI", () => {
     assert.equal(result.stdout, "small\n");
   });
 
+  it("keeps the raw alias equivalent to run --mode raw", async () => {
+    const child = [
+      process.execPath,
+      "-e",
+      "process.stdout.write('raw stdout\\n'); process.stderr.write('raw stderr\\n'); process.exit(7)",
+    ];
+    const canonical = run(["run", "--mode", "raw", "--", ...child]);
+    const alias = run(["raw", "--", ...child]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 7);
+    assert.equal(alias.stdout, "raw stdout\n");
+    assert.equal(alias.stderr, "raw stderr\n");
+    assert.deepEqual(await readStoreEvents(), []);
+  });
+
+  it("rejects raw alias tokens before the command separator", () => {
+    const child = [process.execPath, "-e", "process.stdout.write('must not run')"];
+    const canonical = run(["run", "--mode", "raw", "junk", "--", ...child]);
+    const alias = run(["raw", "junk", "--", ...child]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 1);
+    assert.equal(alias.stdout, "");
+    assert.match(alias.stderr, /CR_ERROR: unknown run option: junk/);
+  });
+
+  it("keeps the raw alias missing-separator error canonical", () => {
+    const canonical = run(["run", "--mode", "raw"]);
+    const alias = run(["raw"]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 1);
+    assert.match(alias.stderr, /CR_ERROR: missing command after --/);
+  });
+
   it("counts line boundaries in constant auxiliary space without changing policy thresholds", () => {
     for (const [text, expected] of [
       ["", 0],
