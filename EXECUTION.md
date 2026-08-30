@@ -43,7 +43,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | merged | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; merged as `612f98f` on 2026-08-30. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
-| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
+| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; review-clean after three focused feedback rounds; both CI jobs green and latest-head Copilot review has zero new comments. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; collision-gated until F6's `lib/cli.js` PR merges. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3 gate cleared, but collision-gated until F6's `lib/cli.js` PR merges. |
@@ -57,12 +57,12 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 ## Session closeout
 
-- Merged: 0 (merging was not authorized).
-- Open PRs awaiting human review/merge: 3 — #11 (F1), #12 (F9), and #13 (F3). All three are CI-green, `MERGEABLE`/`CLEAN`, independently based on current `main`, settled for at least 300 seconds, and have no actionable review backlog.
+- Merged: 4 — F1 (#11), F2 (#14), F9 (#12), and F3 (#13).
+- Open PRs awaiting human approve-and-merge: 2 — #15 (F6) and #16 (F10). Both are CI-green, have current-head Copilot reviews with zero new actionable comments, no unresolved threads or human change requests, and clean mergeability results.
 - Stale findings: none.
-- Blocked findings: F2 only; ARC-2314 remains blocked by the recorded relation until PR #11 is actually merged.
-- Queued findings: F6, F10, F8, F7, F4, and F5 are intentionally held at the three-open-PR WIP cap; collision sequencing remains recorded in the ledger.
-- Recommended next session: re-read this ledger and current PR state. Once PR #11 is merged, mark F1 merged, close ARC-2313, unblock ARC-2314, and start F2 from the then-current `main`. If another PR merges first while #11 remains open, keep F2 blocked and take the highest-ranked now-unblocked, non-colliding finding.
+- Blocked findings: none in formal `blocked` state.
+- Queued findings: F8 and F7 are collision-gated on F6's open `lib/cli.js` change; F4 and F5 are collision-gated on F6/F10 and retain their recorded rank order behind F8. The WIP cap has room, but no remaining scope can branch independently without violating serialization.
+- Recommended next session: verify #15/#16 merge state first. After #15 merges, mark F6/ARC-2317 complete and start F8 from the then-current `main`; mark F10/ARC-2318 complete whenever #16 merges. Continue F7 after F8 under the WIP cap, and do not start F4 until both F10 and the higher-ranked CLI work are merged.
 
 ## Review runs
 
@@ -72,7 +72,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 3 | re-requested 2026-08-30T22:14:33Z for `27cf2e8` | none | running on latest head; prior heads green | 3 | 0 | 0 | awaiting-review |
+| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 3 | completed on latest head `27cf2e8`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 
 Review log (append-only):
@@ -92,6 +92,7 @@ Review log (append-only):
 - 2026-08-30T17:01:42-0500 — PR #15 round 1 at `2157fc56b96d77ef6eeae8a4cffd897649e79889`: accepted Copilot's one comment that existing empty files were conflated with ENOENT; fixed it in `2157fc5`, extended the byte-identity matrix to empty/whitespace files, reran 149/149 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
 - 2026-08-30T17:07:44-0500 — PR #15 round 2 at `cea7b6f086ae84af407c66a63dcc54d83c84dab6`: accepted Copilot's one comment that uninstall would create a missing config as an empty/invalid file; fixed it in `cea7b6f`, added Claude/Codex real/dry-run absence tests, reran 150/150 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
 - 2026-08-30T17:14:33-0500 — PR #15 round 3 at `27cf2e84effabbca6e22b38181ddebf093120348`: Copilot generated no inline comments but surfaced a valid suppressed summary concern that array-valued hook containers could be spread into a different shape. Fixed the class at the trust boundary in `27cf2e8` (plain-object `hooks`, array `PreToolUse`), added the array-container byte-identity case, posted a PR reply, reran 150/150 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
+- 2026-08-30T17:19:17-0500 — PR #15 round 3 re-review completed on `27cf2e84effabbca6e22b38181ddebf093120348` with zero new comments. Final snapshot: 0 unresolved threads, no human reviews, both CI jobs green, and merge state clean. Marked `review-clean`; PRs #15 and #16 are ready for human approve-and-merge.
 - 2026-08-30T17:02:56-0500 — PR #16 round 0 snapshot at `42190ba3506e9df64943c1d7925e840e2ae7196e`: local validation green; GitHub CI starting; Copilot review not yet requested.
 - 2026-08-30T17:03:44-0500 — PR #16 round 0 follow-up at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot request confirmed by the GitHub timeline at 2026-08-30T22:03:35Z; both CI jobs green; awaiting current-head Copilot review.
 - 2026-08-30T17:06:35-0500 — PR #16 round 1 at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot reviewed both changed files and generated zero comments; 0 unresolved threads; no human reviews; both CI jobs green. Marked `review-clean` and left for human approve-and-merge.
@@ -130,3 +131,4 @@ Review log (append-only):
 - 2026-08-30T17:02:56-0500 — Opened PR #16 for F10 at `42190ba` after a failing-first full-output split canary, boundary/threshold/large-input coverage, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F10 is now `pr-open`; the run is at its three-PR WIP cap.
 - 2026-08-30T17:08:01-0500 — Human merged PR #14 for F2 as `612f98f`; verified the commit on `origin/main`, marked F2 merged, and closed ARC-2314. F6/F10 remain cleanly mergeable and have no file overlap with F2's package/workflow scope.
 - 2026-08-30T17:09:27-0500 — Reconciled remaining scope collisions after the WIP slot reopened: every queued finding touches `lib/cli.js` or `lib/policy.js`, so F8/F7 must wait for F6 and F4/F5 must also wait for F10. No new branch was started from an overlapping open PR.
+- 2026-08-30T17:19:17-0500 — Closed the session with F2 merged, F6/F10 review-clean, no stale or formally blocked findings, and every queued finding tied to an explicit file-collision gate and next-session starting point.
