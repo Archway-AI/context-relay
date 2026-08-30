@@ -35,22 +35,13 @@ jobs:
           node --version
           npm --version
 
-      - name: Test
-        run: npm test
-
-      - name: Quickstart
-        run: npm run quickstart
-
-      - name: Fixture evals
-        run: npm run eval
-
-      - name: Pack dry run
-        run: npm run pack:dry-run
+      - name: Release check
+        run: npm run release:check
 
       - name: Publish dry run
         if: inputs.dry_run
-        run: npm publish --dry-run --access public
+        run: npm publish --dry-run --ignore-scripts --access public
 
       - name: Publish
         if: ${{ !inputs.dry_run }}
-        run: npm publish --provenance --access public
+        run: npm publish --ignore-scripts --provenance --access public
