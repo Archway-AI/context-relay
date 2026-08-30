@@ -39,10 +39,10 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
-| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | pr-open | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; CI green and independent PR settled with no review backlog; looks merge-ready. Blocks F2 until merge. |
-| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | blocked | — | — | Rank 2; hard-gated until F1 PR #11 merges. |
-| F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | pr-open | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; CI green and independent PR settled with no review backlog; looks merge-ready. |
-| F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | pr-open | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; CI green and independent PR settled with no review backlog; looks merge-ready. |
+| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | merged | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; merged as `35d3a94` on 2026-08-30. F2 dependency gate cleared. |
+| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | verifying | — | — | Rank 2; re-verifying against merged `origin/main` at `ab6249e`. |
+| F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
+| F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | queued | — | — | Rank 5; held by the three-PR WIP cap and serialized behind F9's overlapping `lib/integrations.js` scope. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | queued | — | — | Rank 6; held by the three-PR WIP cap. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
@@ -105,3 +105,5 @@ Review log (append-only):
 - 2026-08-30T14:14:12-0500 — Opened PR #13 for F3 after failing-first storage failure tests, 146/146 repository tests, quickstart, 9/9 eval cases, pack dry run, and diff checks. F3 is now `pr-open`; the run is at its three-PR WIP cap.
 - 2026-08-30T14:20:58-0500 — PRs #12 and #13 completed CI and 300-second quiet settles with no review, comment, branch-currency, or human-decision backlog; both look merge-ready. No PR was merged.
 - 2026-08-30T14:20:58-0500 — Closed the execution session at the three-open-PR WIP cap. F2 remains hard-blocked by F1; all other queued work and collision gates are explicitly recorded above.
+- 2026-08-30T16:40:54-0500 — Resumed execution after the human merged PRs #11, #12, and #13. Verified `origin/main` at `ab6249e6416b37fdd76d58c8793f7549d3d3fbd0`; Linear already reflects ARC-2313, ARC-2315, and ARC-2316 as Done. Marked F1/F9/F3 merged and cleared the F2/F6/F7 gates.
+- 2026-08-30T16:40:54-0500 — Set F2 / ARC-2314 to `verifying` against merged `origin/main`; no finding branch exists yet.
