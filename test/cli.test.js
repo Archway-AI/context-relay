@@ -2621,6 +2621,26 @@ describe("context-relay CLI", () => {
     }
   });
 
+  it("does not create a missing agent config file during uninstall", async () => {
+    for (const [provider, configName] of [["claude", "settings.json"], ["codex", "hooks.json"]]) {
+      for (const dryRunArgs of [[], ["--dry-run"]]) {
+        const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+        const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+        tempDirs.push(claudeHome, codexHome);
+        const env = {
+          CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+          CONTEXT_RELAY_CODEX_HOME: codexHome,
+        };
+        const providerHome = provider === "claude" ? claudeHome : codexHome;
+        const configPath = path.join(providerHome, configName);
+
+        const uninstall = run(["uninstall", `--${provider}`, ...dryRunArgs], { env });
+        assert.equal(uninstall.status, 0, uninstall.stderr);
+        await assert.rejects(access(configPath), { code: "ENOENT" });
+      }
+    }
+  });
+
   it("uses exact awareness ownership across status, repeated init, and uninstall", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
