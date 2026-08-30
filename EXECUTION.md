@@ -74,7 +74,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#15](https://github.com/Archway-AI/context-relay/pull/15) | 3 | completed on latest head `27cf2e8`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 0 | not yet requested | none | pending (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 0 | requested for `6407745`; timeline confirmed | none | pending (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -98,6 +98,7 @@ Review log (append-only):
 - 2026-08-30T17:03:44-0500 — PR #16 round 0 follow-up at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot request confirmed by the GitHub timeline at 2026-08-30T22:03:35Z; both CI jobs green; awaiting current-head Copilot review.
 - 2026-08-30T17:06:35-0500 — PR #16 round 1 at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot reviewed both changed files and generated zero comments; 0 unresolved threads; no human reviews; both CI jobs green. Marked `review-clean` and left for human approve-and-merge.
 - 2026-08-30T18:05:08-0500 — PR #17 round 0 snapshot at `6407745fc4eeadecd892cdc84cd57addbb151416`: no review feedback; Node 22.14.0 and Node 24.x CI are running; Copilot review not yet requested.
+- 2026-08-30T18:05:49-0500 — PR #17 round 0 follow-up at `6407745fc4eeadecd892cdc84cd57addbb151416`: Copilot request confirmed by the GitHub timeline at 2026-08-30T23:05:49Z; CI and current-head review pending.
 
 ## Session log (append-only)
 
