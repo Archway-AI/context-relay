@@ -45,7 +45,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | merged | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; merged as `5f756a0` on 2026-08-30. F8/F7 collision gate cleared. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | merged | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; merged as `91135e3` on 2026-08-30. F4/F5 policy collision gate cleared. |
-| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | pr-open | `audit/ARC-2319-f8-canonical-raw-alias` | [#17](https://github.com/Archway-AI/context-relay/pull/17) | Rank 7; review round 1 fixed a raw-mode override at `62447d6`; CI is green and latest-head Copilot re-review is pending. |
+| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | pr-open | `audit/ARC-2319-f8-canonical-raw-alias` | [#17](https://github.com/Archway-AI/context-relay/pull/17) | Rank 7; review-clean after one focused feedback round at `62447d6`; both CI jobs green and latest-head Copilot review has zero new comments. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3/F6 gates cleared, but serialized behind F8 because both touch `lib/cli.js`. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; F6/F10 gates cleared, but serialized after F8 because both touch `lib/cli.js`. |
 | F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; F6/F10 gates cleared, but serialized after F8 and F4 because their scopes overlap. |
@@ -58,11 +58,11 @@ The active-project inventory has one exact subsystem home for this repository. A
 ## Session closeout
 
 - Merged: 6 — F1 (#11), F2 (#14), F9 (#12), F3 (#13), F6 (#15), and F10 (#16).
-- Open PRs awaiting human approve-and-merge: 1 — #17 (F8), currently under CI and review monitoring.
+- Open PRs awaiting human approve-and-merge: 1 — #17 (F8). It is CI-green, has a current-head Copilot review with zero new actionable comments, no unresolved threads or human change requests, and clean mergeability.
 - Stale findings: none.
 - Blocked findings: none in formal `blocked` state.
 - Queued findings: F7 remains serialized behind F8 because both touch `lib/cli.js`; F4 and F5 retain their recorded rank order behind F8 despite their F6/F10 merge gates being clear.
-- Recommended next session: finish #17 review monitoring; after F8's PR merges, continue F7, then F4 and F5 in order.
+- Recommended next session: verify #17 merge state first. After F8 merges, mark ARC-2319 Done and continue F7 from the then-current `main`; F4 and F5 remain serialized behind the higher-ranked CLI work.
 
 ## Review runs
 
@@ -74,7 +74,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#15](https://github.com/Archway-AI/context-relay/pull/15) | 3 | completed on latest head `27cf2e8`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 1 | re-requested for `62447d6`; timeline confirmed | none | green (Node 22.14.0, Node 24.x) | 1 | 0 | 0 | awaiting-review |
+| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 1 | completed on latest head `62447d6`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 1 | 0 | 0 | review-clean |
 
 Review log (append-only):
 
@@ -100,6 +100,7 @@ Review log (append-only):
 - 2026-08-30T18:05:08-0500 — PR #17 round 0 snapshot at `6407745fc4eeadecd892cdc84cd57addbb151416`: no review feedback; Node 22.14.0 and Node 24.x CI are running; Copilot review not yet requested.
 - 2026-08-30T18:05:49-0500 — PR #17 round 0 follow-up at `6407745fc4eeadecd892cdc84cd57addbb151416`: Copilot request confirmed by the GitHub timeline at 2026-08-30T23:05:49Z; CI and current-head review pending.
 - 2026-08-30T18:13:19-0500 — PR #17 round 1 at `62447d61277d817f874e668ac7420ea70f7c1e17`: accepted Copilot's one comment that a later `--mode compress` could escape the raw alias contract; fixed it in `62447d6`, added a failing-first no-artifact/no-event regression, reran 155/155 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Both CI jobs are green; latest-head re-review pending.
+- 2026-08-30T18:15:50-0500 — PR #17 round 1 re-review completed on `62447d61277d817f874e668ac7420ea70f7c1e17` with zero new comments. Final snapshot: 0 unresolved threads, no human reviews, both CI jobs green, and merge state clean. Marked `review-clean` and left for human approve-and-merge.
 
 ## Session log (append-only)
 
@@ -141,3 +142,4 @@ Review log (append-only):
 - 2026-08-30T18:00:45-0500 — Mirrored the merge reconciliation to Linear: moved ARC-2317 and ARC-2318 to Done with merge-SHA comments, and recorded F8 verification on ARC-2319.
 - 2026-08-30T18:01:44-0500 — F8 fully holds after F6 merged: the public `raw` alias still uses a duplicate parser that silently ignores pre-separator tokens while canonical `run --mode raw` rejects them. Advanced F8 to `in-progress` on `audit/ARC-2319-f8-canonical-raw-alias` from `origin/main` at `91135e3`.
 - 2026-08-30T18:05:08-0500 — Opened PR #17 for F8 at `6407745` after the required failing-first malformed-token parity check, 154/154 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and scope/diff checks. F8 is now `pr-open`; Linear ARC-2319 moves to In Review.
+- 2026-08-30T18:15:50-0500 — Closed the session with F6/F10 reconciled as merged and F8 PR #17 review-clean after one feedback round. F7 remains queued behind F8's merge; F4/F5 remain serialized behind the higher-ranked CLI work. No stale or formally blocked findings.
