@@ -72,7 +72,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 0 | not yet requested for `f6ea6d6` | none | starting (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 0 | requested 2026-08-30T21:55:48Z; awaiting review of `f6ea6d6` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -87,6 +87,7 @@ Review log (append-only):
 - 2026-08-30T16:46:36-0500 — PR #14 round 0 snapshot at `13179661b6621985bd283bf3eef388e9c9d4111a`: no review feedback; CI running; Copilot request confirmed by the GitHub timeline at 2026-08-30T21:46:14Z.
 - 2026-08-30T16:49:48-0500 — PR #14 round 1 at `13179661b6621985bd283bf3eef388e9c9d4111a`: Copilot completed a latest-head review covering all 3 changed files with zero actionable comments; 0 unresolved threads; no human reviews; Node 22.14.0 and Node 24.x CI green. Marked `review-clean` and left for human approve-and-merge.
 - 2026-08-30T16:55:12-0500 — PR #15 round 0 snapshot at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: local validation green; GitHub CI starting; Copilot review not yet requested.
+- 2026-08-30T16:56:02-0500 — PR #15 round 0 follow-up at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: Copilot request confirmed by the GitHub timeline at 2026-08-30T21:55:48Z; both CI jobs green; awaiting current-head Copilot review.
 
 ## Session log (append-only)
 
