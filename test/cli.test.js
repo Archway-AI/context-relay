@@ -2563,6 +2563,8 @@ describe("context-relay CLI", () => {
 
   it("reports invalid agent config explicitly and refuses every mutation without rewriting it", async () => {
     const invalidConfigs = [
+      ["empty file", ""],
+      ["whitespace-only file", " \n\t"],
       ["malformed JSON", "{\n"],
       ["null", "null\n"],
       ["array", "[]\n"],
