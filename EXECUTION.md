@@ -64,6 +64,20 @@ The active-project inventory has one exact subsystem home for this repository. A
 - Queued findings: F6, F10, F8, F7, F4, and F5 are intentionally held at the three-open-PR WIP cap; collision sequencing remains recorded in the ledger.
 - Recommended next session: re-read this ledger and current PR state. Once PR #11 is merged, mark F1 merged, close ARC-2313, unblock ARC-2314, and start F2 from the then-current `main`. If another PR merges first while #11 remains open, keep F2 blocked and take the highest-ranked now-unblocked, non-colliding finding.
 
+## Review runs
+
+| PR | Round | Copilot state | Human reviews | CI | Fixed | Declined | Escalated | Status |
+| --- | ---: | --- | --- | --- | ---: | ---: | ---: | --- |
+| [#11](https://github.com/Archway-AI/context-relay/pull/11) | 0 | no review on `bdcf437`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#12](https://github.com/Archway-AI/context-relay/pull/12) | 0 | no review on `8ee00ce`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#13](https://github.com/Archway-AI/context-relay/pull/13) | 0 | no review on `619d880`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+
+Review log (append-only):
+
+- 2026-08-30T14:28:32-0500 — PR #11 round 0 snapshot at `bdcf437fdd64b6f13ea1bcc17e32106fa1602e90`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
+- 2026-08-30T14:28:32-0500 — PR #12 round 0 snapshot at `8ee00ced69b627401f8665c0ff61689207d4cd28`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
+- 2026-08-30T14:28:32-0500 — PR #13 round 0 snapshot at `619d8808bbb502d42878c1392d9e12e35f6b0138`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
+
 ## Session log (append-only)
 
 - 2026-08-30T13:48:26-0500 — Started execution at the audit-pinned revision; fetched `origin/main` and verified local `HEAD` equals `origin/main` at `3e38c310e9236329445f00bc62de31d219015750`.
