@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { classifyCommand, lineCount } from "../lib/policy.js";
 
 const bin = new URL("../bin/context-relay.js", import.meta.url).pathname;
 const packageRoot = path.dirname(new URL("../package.json", import.meta.url).pathname);
@@ -179,6 +180,38 @@ describe("context-relay CLI", () => {
     const result = run(["run", "--", process.execPath, "-e", "console.log('small')"]);
     assert.equal(result.status, 0);
     assert.equal(result.stdout, "small\n");
+  });
+
+  it("counts line boundaries in constant auxiliary space without changing policy thresholds", () => {
+    for (const [text, expected] of [
+      ["", 0],
+      ["one line", 1],
+      ["a\nb", 2],
+      ["a\r\nb", 2],
+      ["a\rb", 1],
+      ["a\n", 2],
+    ]) {
+      assert.equal(lineCount(text), expected, JSON.stringify(text));
+    }
+
+    const twentyFiveLines = Array(25).fill("x").join("\n");
+    const twentySixLines = `${twentyFiveLines}\nx`;
+    assert.equal(classifyCommand(["echo"], twentyFiveLines, 0, "auto").reasonCode, "CR_PASS_SMALL_OUTPUT");
+    assert.equal(classifyCommand(["echo"], twentySixLines, 0, "auto").reasonCode, "CR_REVERSIBLE_SUMMARY");
+
+    const largeOutput = "line\n".repeat(1_000_000);
+    const originalSplit = String.prototype.split;
+    String.prototype.split = function refuseFullOutputSplit(...args) {
+      if (String(this) === largeOutput) {
+        throw new Error("lineCount allocated through String#split");
+      }
+      return Reflect.apply(originalSplit, this, args);
+    };
+    try {
+      assert.equal(lineCount(largeOutput), 1_000_001);
+    } finally {
+      String.prototype.split = originalSplit;
+    }
   });
 
   it("summarizes noisy output and stores a retrievable artifact", () => {
