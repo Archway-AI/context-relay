@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -329,6 +329,19 @@ describe("context-relay CLI", () => {
     const retrieve = run(["retrieve", id]);
     assert.notEqual(retrieve.status, 0);
     assert.match(retrieve.stderr, /CR_RETRIEVE_HASH_MISMATCH/);
+  });
+
+  it("distinguishes malformed artifact JSON from a missing artifact", async () => {
+    const result = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
+    const id = artifactId(result.stdout);
+    const artifactPath = path.join(storeDir, "artifacts", `${id}.json`);
+    await writeFile(artifactPath, "{ malformed json\n");
+
+    const retrieve = run(["retrieve", id]);
+    assert.notEqual(retrieve.status, 0);
+    assert.equal(retrieve.stdout, "");
+    assert.match(retrieve.stderr, /CR_RETRIEVE_CORRUPT_JSON/);
+    assert.doesNotMatch(retrieve.stderr, /CR_RETRIEVE_MISSING/);
   });
 
   it("fails safely for expired artifacts", async () => {
@@ -1622,6 +1635,27 @@ describe("context-relay CLI", () => {
     assert.equal(stats.retrievals, 2);
   });
 
+  it("fails stats when the store path is unavailable instead of reporting zero", async () => {
+    const unavailableRoot = path.join(await makeTempDir("context-relay-unavailable-"), "store-file");
+    await writeFile(unavailableRoot, "not a directory\n");
+
+    const result = run(["stats"], { env: { CONTEXT_RELAY_STORE_DIR: unavailableRoot } });
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /CR_ERROR/);
+  });
+
+  it("fails cleanup when the artifact directory is unavailable instead of reporting zero", async () => {
+    const unavailableRoot = path.join(await makeTempDir("context-relay-unavailable-"), "store-file");
+    await writeFile(unavailableRoot, "not a directory\n");
+
+    const result = run(["cleanup"], { env: { CONTEXT_RELAY_STORE_DIR: unavailableRoot } });
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /CR_ERROR/);
+    assert.equal(await readFile(unavailableRoot, "utf8"), "not a directory\n");
+  });
+
   it("cleans expired artifacts without removing active artifacts", async () => {
     const expired = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
     const active = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
@@ -1660,6 +1694,35 @@ describe("context-relay CLI", () => {
       mode: "expired",
     });
     await assert.rejects(access(artifactPath));
+  });
+
+  it("cleans artifacts with malformed JSON", async () => {
+    const result = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
+    const id = artifactId(result.stdout);
+    const artifactPath = path.join(storeDir, "artifacts", `${id}.json`);
+    await writeFile(artifactPath, "{ malformed json\n");
+
+    const cleanup = run(["cleanup"]);
+    assert.equal(cleanup.status, 0, cleanup.stderr);
+    assert.equal(JSON.parse(cleanup.stdout).removed_artifacts, 1);
+    await assert.rejects(access(artifactPath));
+  });
+
+  it("does not delete an unreadable artifact during cleanup", async () => {
+    const result = run(["run", "--mode", "compress", "--", ...noisyNodeCommand()]);
+    const id = artifactId(result.stdout);
+    const artifactPath = path.join(storeDir, "artifacts", `${id}.json`);
+    await chmod(artifactPath, 0o000);
+
+    try {
+      const cleanup = run(["cleanup"]);
+      assert.notEqual(cleanup.status, 0);
+      assert.equal(cleanup.stdout, "");
+      assert.match(cleanup.stderr, /CR_ERROR/);
+      await access(artifactPath);
+    } finally {
+      await chmod(artifactPath, 0o600);
+    }
   });
 
   it("cleans the full local store when requested", async () => {
