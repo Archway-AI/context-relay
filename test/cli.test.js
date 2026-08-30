@@ -227,6 +227,23 @@ describe("context-relay CLI", () => {
     assert.match(alias.stderr, /CR_ERROR: missing command after --/);
   });
 
+  it("keeps the raw alias in raw mode when a mode flag precedes the separator", async () => {
+    const rawOutput = Array.from({ length: 40 }, (_, index) => `raw line ${index + 1}`).join("\n") + "\n";
+    const alias = run([
+      "raw",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `process.stdout.write(${JSON.stringify(rawOutput)})`,
+    ]);
+
+    assert.equal(alias.status, 0, alias.stderr);
+    assert.equal(alias.stdout, rawOutput);
+    assert.deepEqual(await readStoreEvents(), []);
+  });
+
   it("counts line boundaries in constant auxiliary space without changing policy thresholds", () => {
     for (const [text, expected] of [
       ["", 0],
