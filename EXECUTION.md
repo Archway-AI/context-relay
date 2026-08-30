@@ -39,7 +39,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
-| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | queued | — | — | Rank 1; blocks F2 via Linear relation `77d34ce7-f636-4212-a07d-806b1f1b0283`. |
+| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | verifying | — | — | Rank 1; re-verifying against current `main`; blocks F2 via Linear relation `77d34ce7-f636-4212-a07d-806b1f1b0283`. |
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | queued | — | — | Rank 2; blocked until F1 PR merges. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | queued | — | — | Rank 3. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | queued | — | — | Rank 4. |
@@ -65,3 +65,4 @@ The active-project inventory has one exact subsystem home for this repository. A
 - 2026-08-30T13:51:21-0500 — Created ARC-2313 through ARC-2322, one issue per accepted finding, in `Context Relay OSS Launch` with both audit labels and rank-mapped priorities.
 - 2026-08-30T13:51:21-0500 — Created ARC-2323 as the single below-the-line checklist; no below-line candidate is authorized for implementation.
 - 2026-08-30T13:51:21-0500 — Encoded the hard dependency as a Linear blocking relation: ARC-2313 (F1) blocks ARC-2314 (F2).
+- 2026-08-30T13:52:17-0500 — Set F1 / ARC-2313 to `verifying`; current `main` remains the audit-pinned revision.
