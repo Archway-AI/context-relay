@@ -43,7 +43,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | pr-open | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
-| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | in-progress | `audit/ARC-2317-f6-validated-config-state` | — | Rank 5; finding fully holds after F9; implementing from merged `origin/main` at `ab6249e`. |
+| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | queued | — | — | Rank 6; held by the three-PR WIP cap. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
@@ -72,6 +72,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
+| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 0 | not yet requested for `f6ea6d6` | none | starting (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -85,6 +86,7 @@ Review log (append-only):
 - 2026-08-30T14:41:13-0500 — PR #11 round 1 re-review completed on `7ac4a92ee63fecbe04fd17f97d332fd646a9bbcc` with 0 new comments. Final snapshot: 0 unresolved threads, no pending or blocking human review, both CI jobs green, merge state clean. Marked `review-clean`; all three target PRs are ready for human approve-and-merge.
 - 2026-08-30T16:46:36-0500 — PR #14 round 0 snapshot at `13179661b6621985bd283bf3eef388e9c9d4111a`: no review feedback; CI running; Copilot request confirmed by the GitHub timeline at 2026-08-30T21:46:14Z.
 - 2026-08-30T16:49:48-0500 — PR #14 round 1 at `13179661b6621985bd283bf3eef388e9c9d4111a`: Copilot completed a latest-head review covering all 3 changed files with zero actionable comments; 0 unresolved threads; no human reviews; Node 22.14.0 and Node 24.x CI green. Marked `review-clean` and left for human approve-and-merge.
+- 2026-08-30T16:55:12-0500 — PR #15 round 0 snapshot at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: local validation green; GitHub CI starting; Copilot review not yet requested.
 
 ## Session log (append-only)
 
@@ -114,3 +116,4 @@ Review log (append-only):
 - 2026-08-30T16:46:36-0500 — Opened PR #14 for F2 at `1317966` after reproducing the false-green publish path, proving the corrected failure path, passing `release:check` on Node 22.14.0 and Node 24, and verifying direct publish invokes the behavioral lifecycle gate. F2 is now `pr-open`; Linear ARC-2314 is In Review.
 - 2026-08-30T16:47:06-0500 — Set F6 / ARC-2317 to `verifying` after F9 merged and cleared the `lib/integrations.js` collision gate.
 - 2026-08-30T16:50:26-0500 — F6 fully holds after F9: valid JSON scalars still crash or spread into new objects, malformed JSON is still collapsed to an uninstalled status, and mutations do not distinguish invalid from missing configuration. Advanced F6 to `in-progress` on `audit/ARC-2317-f6-validated-config-state` from `origin/main` at `ab6249e`.
+- 2026-08-30T16:55:12-0500 — Opened PR #15 for F6 at `f6ea6d6` after a failing-first 5-shape x 2-provider matrix, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F6 is now `pr-open`; Linear ARC-2317 moves to In Review.
