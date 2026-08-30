@@ -40,7 +40,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
 | F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | merged | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; merged as `35d3a94` on 2026-08-30. F2 dependency gate cleared. |
-| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | pr-open | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; scope-exact PR open; local validation green; CI and current-head Copilot review pending. |
+| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | pr-open | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | verifying | — | — | Rank 5; F9 collision gate cleared; re-verifying against merged `origin/main` at `ab6249e`. |
@@ -71,7 +71,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#11](https://github.com/Archway-AI/context-relay/pull/11) | 1 | completed on latest head `7ac4a92`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#14](https://github.com/Archway-AI/context-relay/pull/14) | 0 | requested 2026-08-30T21:46:14Z; awaiting review of `1317966` | none | running (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 
 Review log (append-only):
 
@@ -84,6 +84,7 @@ Review log (append-only):
 - 2026-08-30T14:39:01-0500 — PR #13 round 1 at `619d8808bbb502d42878c1392d9e12e35f6b0138`: latest-head Copilot review completed with 0 actionable comments; 0 unresolved threads; no human reviews; CI green. Marked `review-clean`.
 - 2026-08-30T14:41:13-0500 — PR #11 round 1 re-review completed on `7ac4a92ee63fecbe04fd17f97d332fd646a9bbcc` with 0 new comments. Final snapshot: 0 unresolved threads, no pending or blocking human review, both CI jobs green, merge state clean. Marked `review-clean`; all three target PRs are ready for human approve-and-merge.
 - 2026-08-30T16:46:36-0500 — PR #14 round 0 snapshot at `13179661b6621985bd283bf3eef388e9c9d4111a`: no review feedback; CI running; Copilot request confirmed by the GitHub timeline at 2026-08-30T21:46:14Z.
+- 2026-08-30T16:49:48-0500 — PR #14 round 1 at `13179661b6621985bd283bf3eef388e9c9d4111a`: Copilot completed a latest-head review covering all 3 changed files with zero actionable comments; 0 unresolved threads; no human reviews; Node 22.14.0 and Node 24.x CI green. Marked `review-clean` and left for human approve-and-merge.
 
 ## Session log (append-only)
 
