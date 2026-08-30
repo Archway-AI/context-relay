@@ -1,11 +1,12 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-const packageRoot = path.dirname(new URL("../package.json", import.meta.url).pathname);
+const packageRoot = path.dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const tempDirs = [];
 
 async function copyEvalFixture() {
@@ -20,7 +21,7 @@ async function copyEvalFixture() {
 async function mutateEvalSource(root, before, after) {
   const sourcePath = path.join(root, "scripts/run-evals.js");
   const source = await readFile(sourcePath, "utf8");
-  assert.ok(source.includes(before), `mutation target missing: ${before}`);
+  assert.equal(source.split(before).length - 1, 1, `mutation target must occur exactly once: ${before}`);
   await writeFile(sourcePath, source.replace(before, after));
 }
 
@@ -60,6 +61,7 @@ describe("eval verdict contract", () => {
     const nonReducingCase = nonReducingReport.cases.find((entry) => entry.id === "quickstart-log");
     assert.ok(nonReducingCase.reduction_before_retrieval_percent <= 0);
     assert.equal(nonReducingCase.case_passed, false);
+    assert.equal(nonReducingReport.summary.accuracy_gate_passed, true);
     assert.equal(nonReducingReport.summary.suite_passed, false);
     assert.notEqual(nonReducing.status, 0);
 

@@ -236,7 +236,12 @@ for (const entry of evaluated) {
 
 const passedCases = evaluated.filter((entry) => entry.case_passed).length;
 const compressionCases = evaluated.filter((entry) => "exact_retrieval" in entry);
-const accuracyGatePassed = compressionCases.every((entry) => entry.case_passed);
+const accuracyGatePassed = compressionCases.every(
+  (entry) =>
+    entry.checks.exact_retrieval &&
+    entry.checks.exit_code_preserved &&
+    entry.checks.targeted_retrieval,
+);
 const suitePassed = evaluated.every((entry) => entry.case_passed);
 const report = {
   generated_at: new Date().toISOString(),
