@@ -44,7 +44,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
-| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | in-progress | `audit/ARC-2318-f10-constant-space-line-count` | — | Rank 6; finding fully holds; implementing from merged `origin/main` at `ab6249e`. |
+| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR open after failing-first allocation proof and full local validation; CI/current-head Copilot review pending. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; held by the three-PR WIP cap; serialize after F10 and F8. |
@@ -73,6 +73,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#15](https://github.com/Archway-AI/context-relay/pull/15) | 1 | re-requested 2026-08-30T22:01:42Z for `2157fc5` | none | running on latest head; prior head green | 1 | 0 | 0 | awaiting-review |
+| [#16](https://github.com/Archway-AI/context-relay/pull/16) | 0 | not yet requested for `42190ba` | none | starting (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -89,6 +90,7 @@ Review log (append-only):
 - 2026-08-30T16:55:12-0500 — PR #15 round 0 snapshot at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: local validation green; GitHub CI starting; Copilot review not yet requested.
 - 2026-08-30T16:56:02-0500 — PR #15 round 0 follow-up at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: Copilot request confirmed by the GitHub timeline at 2026-08-30T21:55:48Z; both CI jobs green; awaiting current-head Copilot review.
 - 2026-08-30T17:01:42-0500 — PR #15 round 1 at `2157fc56b96d77ef6eeae8a4cffd897649e79889`: accepted Copilot's one comment that existing empty files were conflated with ENOENT; fixed it in `2157fc5`, extended the byte-identity matrix to empty/whitespace files, reran 149/149 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
+- 2026-08-30T17:02:56-0500 — PR #16 round 0 snapshot at `42190ba3506e9df64943c1d7925e840e2ae7196e`: local validation green; GitHub CI starting; Copilot review not yet requested.
 
 ## Session log (append-only)
 
@@ -121,3 +123,4 @@ Review log (append-only):
 - 2026-08-30T16:55:12-0500 — Opened PR #15 for F6 at `f6ea6d6` after a failing-first 5-shape x 2-provider matrix, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F6 is now `pr-open`; Linear ARC-2317 moves to In Review.
 - 2026-08-30T16:56:37-0500 — Set F10 / ARC-2318 to `verifying` against merged `origin/main` at `ab6249e`; the WIP cap has room for one more independent PR.
 - 2026-08-30T16:56:53-0500 — F10 fully holds: `lineCount` still allocates a full split array for every non-secret captured output, including the large-output path, and its result still controls the 25/26-line threshold. Advanced F10 to `in-progress` on `audit/ARC-2318-f10-constant-space-line-count` from `origin/main` at `ab6249e`.
+- 2026-08-30T17:02:56-0500 — Opened PR #16 for F10 at `42190ba` after a failing-first full-output split canary, boundary/threshold/large-input coverage, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F10 is now `pr-open`; the run is at its three-PR WIP cap.
