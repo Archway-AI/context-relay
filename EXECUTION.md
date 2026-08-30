@@ -32,7 +32,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 ## Dependency and collision gates
 
 - Hard dependency: F1 blocks F2. F2 cannot start until F1's PR is merged.
-- File-collision serialization: F9 before F6 (`lib/integrations.js`); F3 before F7 (`lib/artifact-store.js`); F10 before F4 (`lib/policy.js`); F8 before F4/F5 (`lib/cli.js`); F4 before F5 (`lib/policy.js`, `lib/cli.js`, `lib/summarize.js`).
+- File-collision serialization: F9 before F6 (`lib/integrations.js`); F3 before F7 (`lib/artifact-store.js`); F6 before F8/F7/F4/F5 (`lib/cli.js`); F10 before F4/F5 (`lib/policy.js`); F8 before F4/F5 (`lib/cli.js`); F4 before F5 (`lib/policy.js`, `lib/cli.js`, `lib/summarize.js`).
 - Rank/tranche start order under the current WIP cap: F1, F9, F3. F2 remains dependency-gated.
 
 ## Finding ledger
@@ -45,10 +45,10 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
-| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
-| F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
-| F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; held by the three-PR WIP cap; serialize after F10 and F8. |
-| F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; held by the three-PR WIP cap; serialize after F4. |
+| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; collision-gated until F6's `lib/cli.js` PR merges. |
+| F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3 gate cleared, but collision-gated until F6's `lib/cli.js` PR merges. |
+| F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; collision-gated until F6 and F10 merge, then serialize after F8. |
+| F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; collision-gated until F6/F10 merge and serialized after F8 and F4. |
 
 ## Below-the-line tracker
 
@@ -128,3 +128,4 @@ Review log (append-only):
 - 2026-08-30T16:56:53-0500 — F10 fully holds: `lineCount` still allocates a full split array for every non-secret captured output, including the large-output path, and its result still controls the 25/26-line threshold. Advanced F10 to `in-progress` on `audit/ARC-2318-f10-constant-space-line-count` from `origin/main` at `ab6249e`.
 - 2026-08-30T17:02:56-0500 — Opened PR #16 for F10 at `42190ba` after a failing-first full-output split canary, boundary/threshold/large-input coverage, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F10 is now `pr-open`; the run is at its three-PR WIP cap.
 - 2026-08-30T17:08:01-0500 — Human merged PR #14 for F2 as `612f98f`; verified the commit on `origin/main`, marked F2 merged, and closed ARC-2314. F6/F10 remain cleanly mergeable and have no file overlap with F2's package/workflow scope.
+- 2026-08-30T17:09:27-0500 — Reconciled remaining scope collisions after the WIP slot reopened: every queued finding touches `lib/cli.js` or `lib/policy.js`, so F8/F7 must wait for F6 and F4/F5 must also wait for F10. No new branch was started from an overlapping open PR.
