@@ -154,26 +154,6 @@ function range(values) {
   };
 }
 
-// A case passes when every assertion recorded for it holds. Compression cases
-// and the secret-block case assert different things, so the shape decides.
-function casePassed(entry) {
-  if ("exact_retrieval" in entry) {
-    return entry.exact_retrieval && entry.exit_code_preserved && entry.targeted_retrieval_passed;
-  }
-  // `artifact_created` is asserted TRUE here, not false. This assertion was written
-  // against the pre-D1 contract, where a blocked run stored nothing at all —
-  // preserving retrievable evidence on the blocked path is the entire point of that
-  // change, so a blocked run that stores no artifact is now a failure rather than the
-  // expected result. The stored copy must also survive re-detection, which is the
-  // storability gate itself.
-  return (
-    entry.blocked &&
-    entry.artifact_created &&
-    entry.secret_absent_from_output &&
-    entry.redacted_artifact_clean
-  );
-}
-
 // Ratio rounded to three decimals; an empty case list reports 0 instead of NaN.
 function passRate(passed, total) {
   return total > 0 ? Number((passed / total).toFixed(3)) : 0;
@@ -193,7 +173,7 @@ for (const testCase of cases) {
   const summaryBytes = bytes(relayed.stdout);
   const targetedRetrievalBytes = bytes(targetedRetrieval?.stdout || "");
   const targetedRetrievalMatchCount = nonEmptyLineCount(targetedRetrieval?.stdout || "");
-  evaluated.push({
+  const entry = {
     id: testCase.id,
     description: testCase.description,
     expected_exit_code: testCase.expectExit,
@@ -213,7 +193,14 @@ for (const testCase of cases) {
     exact_retrieval: fullRetrieval?.stdout === raw.stdout,
     exit_code_preserved: relayed.status === raw.status && raw.status === testCase.expectExit,
     artifact_created: Boolean(id),
-  });
+  };
+  entry.checks = {
+    exact_retrieval: entry.exact_retrieval,
+    exit_code_preserved: entry.exit_code_preserved,
+    targeted_retrieval: entry.targeted_retrieval_passed,
+    summary_smaller_than_raw: entry.summary_bytes < entry.raw_bytes,
+  };
+  evaluated.push(entry);
 }
 
 const secret = runRelay(["run", "--mode", "compress", "--", ...secretCase.command], {
@@ -221,7 +208,7 @@ const secret = runRelay(["run", "--mode", "compress", "--", ...secretCase.comman
 });
 const secretId = artifactId(secret.stdout);
 const secretRetrieval = secretId ? runRelay(["retrieve", secretId], { runId: secretCase.id }) : null;
-evaluated.push({
+const secretEntry = {
   id: secretCase.id,
   description: secretCase.description,
   relayed_exit_code: secret.status,
@@ -234,15 +221,23 @@ evaluated.push({
       secretRetrieval.stdout.includes("[REDACTED_SECRET]") &&
       !secretRetrieval.stdout.includes("abcdefghijklmnop123456"),
   ),
-});
+};
+secretEntry.checks = {
+  blocked: secretEntry.blocked,
+  artifact_created: secretEntry.artifact_created,
+  secret_absent_from_output: secretEntry.secret_absent_from_output,
+  redacted_artifact_clean: secretEntry.redacted_artifact_clean,
+};
+evaluated.push(secretEntry);
 
 for (const entry of evaluated) {
-  entry.case_passed = casePassed(entry);
+  entry.case_passed = Object.values(entry.checks).every(Boolean);
 }
 
 const passedCases = evaluated.filter((entry) => entry.case_passed).length;
 const compressionCases = evaluated.filter((entry) => "exact_retrieval" in entry);
 const accuracyGatePassed = compressionCases.every((entry) => entry.case_passed);
+const suitePassed = evaluated.every((entry) => entry.case_passed);
 const report = {
   generated_at: new Date().toISOString(),
   node: process.version,
@@ -253,6 +248,7 @@ const report = {
     exit_code_preserved_passed: compressionCases.filter((entry) => entry.exit_code_preserved).length,
     targeted_retrieval_passed: compressionCases.filter((entry) => entry.targeted_retrieval_passed).length,
     accuracy_gate_passed: accuracyGatePassed,
+    suite_passed: suitePassed,
     eval_cases: evaluated.length,
     eval_cases_passed: passedCases,
     eval_pass_rate: passRate(passedCases, evaluated.length),
@@ -295,3 +291,4 @@ for (const entry of evaluated) {
 }
 
 rmSync(storeDir, { recursive: true, force: true });
+process.exitCode = suitePassed ? 0 : 1;

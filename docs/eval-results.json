@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-29T00:43:51.099Z",
-  "node": "v22.22.3",
+  "generated_at": "2026-08-30T18:58:07.455Z",
+  "node": "v22.14.0",
   "note": "Deterministic fixture evals. These are not broad task-accuracy benchmarks.",
   "summary": {
     "compression_cases": 8,
@@ -8,6 +8,7 @@
     "exit_code_preserved_passed": 8,
     "targeted_retrieval_passed": 8,
     "accuracy_gate_passed": true,
+    "suite_passed": true,
     "eval_cases": 9,
     "eval_cases_passed": 9,
     "eval_pass_rate": 1,
@@ -42,6 +43,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -64,6 +71,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -86,6 +99,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -108,6 +127,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -130,6 +155,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -152,6 +183,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -174,6 +211,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -196,6 +239,12 @@
       "exact_retrieval": true,
       "exit_code_preserved": true,
       "artifact_created": true,
+      "checks": {
+        "exact_retrieval": true,
+        "exit_code_preserved": true,
+        "targeted_retrieval": true,
+        "summary_smaller_than_raw": true
+      },
       "case_passed": true
     },
     {
@@ -206,6 +255,12 @@
       "artifact_created": true,
       "secret_absent_from_output": true,
       "redacted_artifact_clean": true,
+      "checks": {
+        "blocked": true,
+        "artifact_created": true,
+        "secret_absent_from_output": true,
+        "redacted_artifact_clean": true
+      },
       "case_passed": true
     }
   ]
