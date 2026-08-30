@@ -39,7 +39,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
-| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | in-progress | `audit/ARC-2313-f1-authoritative-eval-verdict` | — | Rank 1; finding fully re-verified at current `main`; blocks F2 via Linear relation `77d34ce7-f636-4212-a07d-806b1f1b0283`. |
+| F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | pr-open | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; 142/142 tests, quickstart, pack dry run, and evals on Node 22.14.0/24 passed. Blocks F2 until merge. |
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | queued | — | — | Rank 2; blocked until F1 PR merges. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | queued | — | — | Rank 3. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | queued | — | — | Rank 4. |
@@ -67,3 +67,4 @@ The active-project inventory has one exact subsystem home for this repository. A
 - 2026-08-30T13:51:21-0500 — Encoded the hard dependency as a Linear blocking relation: ARC-2313 (F1) blocks ARC-2314 (F2).
 - 2026-08-30T13:52:17-0500 — Set F1 / ARC-2313 to `verifying`; current `main` remains the audit-pinned revision.
 - 2026-08-30T13:53:32-0500 — F1 fully holds: per-case compression verdict still omits reduction, no suite verdict controls the process status, and both workflows still call `npm run eval` as a gate. Advanced F1 to `in-progress` on `audit/ARC-2313-f1-authoritative-eval-verdict`.
+- 2026-08-30T14:00:00-0500 — Opened PR #11 for F1 after TDD mutation validation, 142/142 repository tests, quickstart, pack dry run, and happy-path evals on Node 22.14.0 and Node 24. F1 is now `pr-open`; F2 remains dependency-gated until merge.
