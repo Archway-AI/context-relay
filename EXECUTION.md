@@ -42,7 +42,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | pr-open | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; 142/142 tests, quickstart, pack dry run, and evals on Node 22.14.0/24 passed. Blocks F2 until merge. |
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | queued | — | — | Rank 2; blocked until F1 PR merges. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | pr-open | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; exact ownership predicates shipped with 142/142 tests, quickstart, eval, and pack dry run green. |
-| F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | verifying | — | — | Rank 4; re-verification started against current `origin/main`. |
+| F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | in-progress | `audit/ARC-2316-f3-storage-error-states` | — | Rank 4; finding fully re-verified at current `main`. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | queued | — | — | Rank 5; serialize after F9. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | queued | — | — | Rank 6. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7. |
@@ -72,3 +72,4 @@ The active-project inventory has one exact subsystem home for this repository. A
 - 2026-08-30T14:03:01-0500 — F9 fully holds: Claude install/status still use substring ownership while uninstall requires an exact line; Codex status still accepts marker substrings while mutation owns a complete managed block. Advanced F9 to `in-progress` on `audit/ARC-2315-f9-awareness-ownership`.
 - 2026-08-30T14:08:23-0500 — Opened PR #12 for F9 after a failing-first lifecycle test, 142/142 repository tests, quickstart, 9/9 eval cases, pack dry run, and diff checks. F9 is now `pr-open`.
 - 2026-08-30T14:09:05-0500 — Set F3 / ARC-2316 to `verifying`; fetched current `origin/main` before checking the audit evidence.
+- 2026-08-30T14:09:42-0500 — F3 fully holds: retrieval still collapses every read/parse failure to missing, stats/cleanup still collapse all directory/log read failures to empty success, and cleanup still lets any per-artifact read failure authorize deletion. Advanced F3 to `in-progress` on `audit/ARC-2316-f3-storage-error-states`.
