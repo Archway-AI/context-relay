@@ -44,7 +44,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; scope-exact PR open after failing-first invalid-config matrix and full local validation; CI/current-head Copilot review pending. |
-| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | queued | — | — | Rank 6; held by the three-PR WIP cap. |
+| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | verifying | — | — | Rank 6; re-verifying against merged `origin/main` at `ab6249e`; two of three PR slots are open. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; held by the three-PR WIP cap. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; held by the three-PR WIP cap and serialized behind F3's overlapping `lib/artifact-store.js` scope. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; held by the three-PR WIP cap; serialize after F10 and F8. |
@@ -118,3 +118,4 @@ Review log (append-only):
 - 2026-08-30T16:47:06-0500 — Set F6 / ARC-2317 to `verifying` after F9 merged and cleared the `lib/integrations.js` collision gate.
 - 2026-08-30T16:50:26-0500 — F6 fully holds after F9: valid JSON scalars still crash or spread into new objects, malformed JSON is still collapsed to an uninstalled status, and mutations do not distinguish invalid from missing configuration. Advanced F6 to `in-progress` on `audit/ARC-2317-f6-validated-config-state` from `origin/main` at `ab6249e`.
 - 2026-08-30T16:55:12-0500 — Opened PR #15 for F6 at `f6ea6d6` after a failing-first 5-shape x 2-provider matrix, 149/149 repository tests, quickstart, 9/9 eval cases, pack dry run, focused Node 22.14.0/24 checks, and diff checks. F6 is now `pr-open`; Linear ARC-2317 moves to In Review.
+- 2026-08-30T16:56:37-0500 — Set F10 / ARC-2318 to `verifying` against merged `origin/main` at `ab6249e`; the WIP cap has room for one more independent PR.
