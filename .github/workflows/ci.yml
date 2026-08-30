@@ -34,14 +34,5 @@ jobs:
           node --version
           npm --version
 
-      - name: Test
-        run: npm test
-
-      - name: Quickstart
-        run: npm run quickstart
-
-      - name: Fixture evals
-        run: npm run eval
-
-      - name: Pack dry run
-        run: npm run pack:dry-run
+      - name: Release check
+        run: npm run release:check

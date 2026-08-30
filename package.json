@@ -54,8 +54,10 @@
     "eval": "node scripts/run-evals.js",
     "quickstart": "node scripts/quickstart.js",
     "test": "node --test",
+    "verify": "npm test && npm run quickstart && npm run eval",
     "pack:dry-run": "npm pack --dry-run",
+    "release:check": "npm run verify && npm run pack:dry-run",
     "publish:dry-run": "npm publish --dry-run --access public",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm run verify"
   }
 }
