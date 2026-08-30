@@ -2498,6 +2498,62 @@ describe("context-relay CLI", () => {
     assert.equal(codexHooksAfter.hooks, undefined);
   });
 
+  it("uses exact awareness ownership across status, repeated init, and uninstall", async () => {
+    const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+    tempDirs.push(claudeHome, codexHome);
+    const env = {
+      CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+      CONTEXT_RELAY_CODEX_HOME: codexHome,
+    };
+    const claudeDecoy = "See @CONTEXT_RELAY.md for optional notes.\n";
+    const codexForeign = `Mention @CONTEXT_RELAY.md in prose.
+# --- Context Relay managed block ---
+foreign partial body
+# unrelated delimiter
+# --- end Context Relay managed block ---
+
+# --- Context Relay managed block ---
+orphaned start
+`;
+    await mkdir(claudeHome, { recursive: true });
+    await mkdir(codexHome, { recursive: true });
+    await writeFile(path.join(claudeHome, "CLAUDE.md"), claudeDecoy);
+    await writeFile(path.join(codexHome, "AGENTS.md"), codexForeign);
+
+    const before = JSON.parse(run(["status", "--json"], { env }).stdout);
+    assert.equal(before.claude.awarenessLinked, false);
+    assert.equal(before.codex.awarenessLinked, false);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const init = run(["init", "--all"], { env });
+      assert.equal(init.status, 0, init.stderr);
+    }
+
+    const claudeInstalled = await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8");
+    assert.equal(
+      claudeInstalled.split(/\r?\n/).filter((line) => line.trim() === "@CONTEXT_RELAY.md").length,
+      1,
+    );
+    assert.ok(claudeInstalled.includes(claudeDecoy.trimEnd()));
+
+    const managedBlock = `# --- Context Relay managed block ---
+@CONTEXT_RELAY.md
+# --- end Context Relay managed block ---`;
+    const codexInstalled = await readFile(path.join(codexHome, "AGENTS.md"), "utf8");
+    assert.equal(codexInstalled.split(managedBlock).length - 1, 1);
+    assert.ok(codexInstalled.includes(codexForeign.trimEnd()));
+
+    const installed = JSON.parse(run(["status", "--json"], { env }).stdout);
+    assert.equal(installed.claude.awarenessLinked, true);
+    assert.equal(installed.codex.awarenessLinked, true);
+
+    const uninstall = run(["uninstall", "--all"], { env });
+    assert.equal(uninstall.status, 0, uninstall.stderr);
+    assert.equal(await readFile(path.join(claudeHome, "CLAUDE.md"), "utf8"), claudeDecoy);
+    assert.equal(await readFile(path.join(codexHome, "AGENTS.md"), "utf8"), codexForeign);
+  });
+
   it("Finding 3: reports legacy bare-name hooks as installed but not automatically wrapping, then healthy after re-init, for Claude and Codex", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
