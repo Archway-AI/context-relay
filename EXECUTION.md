@@ -72,7 +72,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 1 | re-requested 2026-08-30T22:01:42Z for `2157fc5` | none | running on latest head; prior head green | 1 | 0 | 0 | awaiting-review |
+| [#15](https://github.com/Archway-AI/context-relay/pull/15) | 2 | re-requested 2026-08-30T22:07:44Z for `cea7b6f` | none | running on latest head; prior heads green | 2 | 0 | 0 | awaiting-review |
 | [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 
 Review log (append-only):
@@ -90,6 +90,7 @@ Review log (append-only):
 - 2026-08-30T16:55:12-0500 — PR #15 round 0 snapshot at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: local validation green; GitHub CI starting; Copilot review not yet requested.
 - 2026-08-30T16:56:02-0500 — PR #15 round 0 follow-up at `f6ea6d673c72eddb9d55ae35777b6ce41e4c8d5c`: Copilot request confirmed by the GitHub timeline at 2026-08-30T21:55:48Z; both CI jobs green; awaiting current-head Copilot review.
 - 2026-08-30T17:01:42-0500 — PR #15 round 1 at `2157fc56b96d77ef6eeae8a4cffd897649e79889`: accepted Copilot's one comment that existing empty files were conflated with ENOENT; fixed it in `2157fc5`, extended the byte-identity matrix to empty/whitespace files, reran 149/149 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
+- 2026-08-30T17:07:44-0500 — PR #15 round 2 at `cea7b6f086ae84af407c66a63dcc54d83c84dab6`: accepted Copilot's one comment that uninstall would create a missing config as an empty/invalid file; fixed it in `cea7b6f`, added Claude/Codex real/dry-run absence tests, reran 150/150 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Latest-head CI/re-review pending.
 - 2026-08-30T17:02:56-0500 — PR #16 round 0 snapshot at `42190ba3506e9df64943c1d7925e840e2ae7196e`: local validation green; GitHub CI starting; Copilot review not yet requested.
 - 2026-08-30T17:03:44-0500 — PR #16 round 0 follow-up at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot request confirmed by the GitHub timeline at 2026-08-30T22:03:35Z; both CI jobs green; awaiting current-head Copilot review.
 - 2026-08-30T17:06:35-0500 — PR #16 round 1 at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot reviewed both changed files and generated zero comments; 0 unresolved threads; no human reviews; both CI jobs green. Marked `review-clean` and left for human approve-and-merge.
