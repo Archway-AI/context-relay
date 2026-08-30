@@ -2561,6 +2561,87 @@ describe("context-relay CLI", () => {
     assert.equal(codexHooksAfter.hooks, undefined);
   });
 
+  it("reports invalid agent config explicitly and refuses every mutation without rewriting it", async () => {
+    const invalidConfigs = [
+      ["empty file", ""],
+      ["whitespace-only file", " \n\t"],
+      ["malformed JSON", "{\n"],
+      ["null", "null\n"],
+      ["array", "[]\n"],
+      ["string", '"foreign"\n'],
+      ["number", "42\n"],
+      ["array hook container", '{"foreign":true,"hooks":[]}\n'],
+    ];
+    const providers = [
+      ["claude", "settings.json"],
+      ["codex", "hooks.json"],
+    ];
+
+    for (const [provider, configName] of providers) {
+      for (const [configKind, original] of invalidConfigs) {
+        const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+        const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+        tempDirs.push(claudeHome, codexHome);
+        const env = {
+          CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+          CONTEXT_RELAY_CODEX_HOME: codexHome,
+        };
+        const providerHome = provider === "claude" ? claudeHome : codexHome;
+        const configPath = path.join(providerHome, configName);
+        await writeFile(configPath, original);
+
+        const status = run(["status", "--json"], { env });
+        assert.equal(status.status, 0, `${provider} ${configKind}: ${status.stderr}`);
+        const statusPayload = JSON.parse(status.stdout);
+        assert.equal(statusPayload[provider].configState, "invalid", `${provider} ${configKind}`);
+
+        const discover = run(["discover", "--json"], { env });
+        assert.equal(discover.status, 0, `${provider} ${configKind}: ${discover.stderr}`);
+        const setup = JSON.parse(discover.stdout).setup;
+        assert.ok(
+          setup.some((item) => item.includes(`${provider === "claude" ? "Claude Code" : "Codex"} configuration is invalid`)),
+          `${provider} ${configKind}: ${JSON.stringify(setup)}`,
+        );
+
+        for (const args of [
+          ["init", `--${provider}`],
+          ["init", `--${provider}`, "--dry-run"],
+          ["uninstall", `--${provider}`],
+          ["uninstall", `--${provider}`, "--dry-run"],
+        ]) {
+          const mutation = run(args, { env });
+          assert.equal(mutation.status, 1, `${provider} ${configKind} ${args.join(" ")}`);
+          assert.match(mutation.stderr, /configuration is invalid/i);
+          assert.equal(
+            await readFile(configPath, "utf8"),
+            original,
+            `${provider} ${configKind} ${args.join(" ")} rewrote config`,
+          );
+        }
+      }
+    }
+  });
+
+  it("does not create a missing agent config file during uninstall", async () => {
+    for (const [provider, configName] of [["claude", "settings.json"], ["codex", "hooks.json"]]) {
+      for (const dryRunArgs of [[], ["--dry-run"]]) {
+        const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
+        const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
+        tempDirs.push(claudeHome, codexHome);
+        const env = {
+          CONTEXT_RELAY_CLAUDE_HOME: claudeHome,
+          CONTEXT_RELAY_CODEX_HOME: codexHome,
+        };
+        const providerHome = provider === "claude" ? claudeHome : codexHome;
+        const configPath = path.join(providerHome, configName);
+
+        const uninstall = run(["uninstall", `--${provider}`, ...dryRunArgs], { env });
+        assert.equal(uninstall.status, 0, uninstall.stderr);
+        await assert.rejects(access(configPath), { code: "ENOENT" });
+      }
+    }
+  });
+
   it("uses exact awareness ownership across status, repeated init, and uninstall", async () => {
     const claudeHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-claude-"));
     const codexHome = await mkdtemp(path.join(os.tmpdir(), "context-relay-codex-"));
