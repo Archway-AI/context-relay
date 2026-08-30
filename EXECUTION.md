@@ -68,9 +68,9 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 | PR | Round | Copilot state | Human reviews | CI | Fixed | Declined | Escalated | Status |
 | --- | ---: | --- | --- | --- | ---: | ---: | ---: | --- |
-| [#11](https://github.com/Archway-AI/context-relay/pull/11) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `bdcf437` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
-| [#12](https://github.com/Archway-AI/context-relay/pull/12) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `8ee00ce` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
-| [#13](https://github.com/Archway-AI/context-relay/pull/13) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `619d880` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#11](https://github.com/Archway-AI/context-relay/pull/11) | 1 | re-requested 2026-08-30T19:39:01Z; awaiting review of `7ac4a92` | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | awaiting-review |
+| [#12](https://github.com/Archway-AI/context-relay/pull/12) | 1 | completed on latest head `8ee00ce`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
+| [#13](https://github.com/Archway-AI/context-relay/pull/13) | 1 | completed on latest head `619d880`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 
 Review log (append-only):
 
@@ -78,6 +78,9 @@ Review log (append-only):
 - 2026-08-30T14:28:32-0500 — PR #12 round 0 snapshot at `8ee00ced69b627401f8665c0ff61689207d4cd28`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
 - 2026-08-30T14:28:32-0500 — PR #13 round 0 snapshot at `619d8808bbb502d42878c1392d9e12e35f6b0138`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
 - 2026-08-30T14:30:24-0500 — Requested Copilot review on PRs #11, #12, and #13. The first CLI requests returned success but were absent from both pending-reviewer APIs, so one documented REST re-request was made; each PR timeline confirms a Copilot review request at 2026-08-30T19:29:22Z. Polling window started from that timestamp.
+- 2026-08-30T14:39:01-0500 — PR #11 round 1 at `7ac4a92ee63fecbe04fd17f97d332fd646a9bbcc`: fixed 3/3 Copilot comments in commit `7ac4a92` (Windows file-URL conversion, unique mutation targets, preserved accuracy-gate semantics); replied to and resolved all 3 threads; targeted red/green regression, 142/142 tests, quickstart, 9/9 evals, pack dry run, and both CI jobs passed. Re-requested Copilot review of the new head.
+- 2026-08-30T14:39:01-0500 — PR #12 round 1 at `8ee00ced69b627401f8665c0ff61689207d4cd28`: latest-head Copilot review completed with 0 actionable comments; 0 unresolved threads; no human reviews; CI green. Marked `review-clean`.
+- 2026-08-30T14:39:01-0500 — PR #13 round 1 at `619d8808bbb502d42878c1392d9e12e35f6b0138`: latest-head Copilot review completed with 0 actionable comments; 0 unresolved threads; no human reviews; CI green. Marked `review-clean`.
 
 ## Session log (append-only)
 
