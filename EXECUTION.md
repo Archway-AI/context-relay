@@ -43,9 +43,9 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | merged | `audit/ARC-2314-f2-package-release-gate` | [#14](https://github.com/Archway-AI/context-relay/pull/14) | Rank 2; merged as `612f98f` on 2026-08-30. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
-| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | pr-open | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; review-clean after three focused feedback rounds; both CI jobs green and latest-head Copilot review has zero new comments. |
-| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | pr-open | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; scope-exact PR is review-clean: both CI jobs green and Copilot completed a latest-head review with zero actionable comments. |
-| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | queued | — | — | Rank 7; collision-gated until F6's `lib/cli.js` PR merges. |
+| F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | merged | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; merged as `5f756a0` on 2026-08-30. F8/F7 collision gate cleared. |
+| F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | merged | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; merged as `91135e3` on 2026-08-30. F4/F5 policy collision gate cleared. |
+| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | verifying | — | — | Rank 7; F6 collision gate cleared; re-verifying against `origin/main` at `91135e3`. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3 gate cleared, but collision-gated until F6's `lib/cli.js` PR merges. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; collision-gated until F6 and F10 merge, then serialize after F8. |
 | F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; collision-gated until F6/F10 merge and serialized after F8 and F4. |
@@ -57,12 +57,12 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 ## Session closeout
 
-- Merged: 4 — F1 (#11), F2 (#14), F9 (#12), and F3 (#13).
-- Open PRs awaiting human approve-and-merge: 2 — #15 (F6) and #16 (F10). Both are CI-green, have current-head Copilot reviews with zero new actionable comments, no unresolved threads or human change requests, and clean mergeability results.
+- Merged: 6 — F1 (#11), F2 (#14), F9 (#12), F3 (#13), F6 (#15), and F10 (#16).
+- Open PRs awaiting human approve-and-merge: none while F8 is being re-verified.
 - Stale findings: none.
 - Blocked findings: none in formal `blocked` state.
-- Queued findings: F8 and F7 are collision-gated on F6's open `lib/cli.js` change; F4 and F5 are collision-gated on F6/F10 and retain their recorded rank order behind F8. The WIP cap has room, but no remaining scope can branch independently without violating serialization.
-- Recommended next session: verify #15/#16 merge state first. After #15 merges, mark F6/ARC-2317 complete and start F8 from the then-current `main`; mark F10/ARC-2318 complete whenever #16 merges. Continue F7 after F8 under the WIP cap, and do not start F4 until both F10 and the higher-ranked CLI work are merged.
+- Queued findings: F7 remains serialized behind F8 because both touch `lib/cli.js`; F4 and F5 retain their recorded rank order behind F8 despite their F6/F10 merge gates being clear.
+- Recommended next session: current session is active on F8 verification; after F8 reaches a terminal state, continue F7 only after F8's PR merges, then F4 and F5 in order.
 
 ## Review runs
 
@@ -132,3 +132,5 @@ Review log (append-only):
 - 2026-08-30T17:08:01-0500 — Human merged PR #14 for F2 as `612f98f`; verified the commit on `origin/main`, marked F2 merged, and closed ARC-2314. F6/F10 remain cleanly mergeable and have no file overlap with F2's package/workflow scope.
 - 2026-08-30T17:09:27-0500 — Reconciled remaining scope collisions after the WIP slot reopened: every queued finding touches `lib/cli.js` or `lib/policy.js`, so F8/F7 must wait for F6 and F4/F5 must also wait for F10. No new branch was started from an overlapping open PR.
 - 2026-08-30T17:19:17-0500 — Closed the session with F2 merged, F6/F10 review-clean, no stale or formally blocked findings, and every queued finding tied to an explicit file-collision gate and next-session starting point.
+- 2026-08-30T17:59:50-0500 — Resumed after the human confirmed all open PRs merged. Verified PR #15 merged as `5f756a0` and PR #16 merged as `91135e3` on `origin/main`; marked F6/F10 merged and cleared their collision gates.
+- 2026-08-30T17:59:50-0500 — Set F8 / ARC-2319 to `verifying` against current `origin/main` at `91135e3`; F7 remains serialized behind F8 because both touch `lib/cli.js`.
