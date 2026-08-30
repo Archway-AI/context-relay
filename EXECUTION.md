@@ -40,7 +40,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | Finding | Issue | Status | Branch | PR | Notes |
 | --- | --- | --- | --- | --- | --- |
 | F1 | [ARC-2313](https://linear.app/archway-ai/issue/ARC-2313) | merged | `audit/ARC-2313-f1-authoritative-eval-verdict` | [#11](https://github.com/Archway-AI/context-relay/pull/11) | Rank 1; merged as `35d3a94` on 2026-08-30. F2 dependency gate cleared. |
-| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | verifying | — | — | Rank 2; re-verifying against merged `origin/main` at `ab6249e`. |
+| F2 | [ARC-2314](https://linear.app/archway-ai/issue/ARC-2314) | in-progress | `audit/ARC-2314-f2-package-release-gate` | — | Rank 2; fully re-verified against merged `origin/main` at `ab6249e`; isolated worktree created. |
 | F9 | [ARC-2315](https://linear.app/archway-ai/issue/ARC-2315) | merged | `audit/ARC-2315-f9-awareness-ownership` | [#12](https://github.com/Archway-AI/context-relay/pull/12) | Rank 3; merged as `a88201c` on 2026-08-30. F6 collision gate cleared. |
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | queued | — | — | Rank 5; held by the three-PR WIP cap and serialized behind F9's overlapping `lib/integrations.js` scope. |
@@ -107,3 +107,4 @@ Review log (append-only):
 - 2026-08-30T14:20:58-0500 — Closed the execution session at the three-open-PR WIP cap. F2 remains hard-blocked by F1; all other queued work and collision gates are explicitly recorded above.
 - 2026-08-30T16:40:54-0500 — Resumed execution after the human merged PRs #11, #12, and #13. Verified `origin/main` at `ab6249e6416b37fdd76d58c8793f7549d3d3fbd0`; Linear already reflects ARC-2313, ARC-2315, and ARC-2316 as Done. Marked F1/F9/F3 merged and cleared the F2/F6/F7 gates.
 - 2026-08-30T16:40:54-0500 — Set F2 / ARC-2314 to `verifying` against merged `origin/main`; no finding branch exists yet.
+- 2026-08-30T16:42:05-0500 — F2 fully holds after the first tranche merged: `prepublishOnly` still runs only tests, while CI and publish duplicate test/quickstart/eval/pack. Advanced F2 to `in-progress` on `audit/ARC-2314-f2-package-release-gate` from `origin/main` at `ab6249e`.
