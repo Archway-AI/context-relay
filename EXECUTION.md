@@ -45,7 +45,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F3 | [ARC-2316](https://linear.app/archway-ai/issue/ARC-2316) | merged | `audit/ARC-2316-f3-storage-error-states` | [#13](https://github.com/Archway-AI/context-relay/pull/13) | Rank 4; merged as `ab6249e` on 2026-08-30. F7 collision gate cleared. |
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | merged | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; merged as `5f756a0` on 2026-08-30. F8/F7 collision gate cleared. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | merged | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; merged as `91135e3` on 2026-08-30. F4/F5 policy collision gate cleared. |
-| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | pr-open | `audit/ARC-2319-f8-canonical-raw-alias` | [#17](https://github.com/Archway-AI/context-relay/pull/17) | Rank 7; scope-exact PR opened at `6407745`; CI and latest-head Copilot review pending. |
+| F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | pr-open | `audit/ARC-2319-f8-canonical-raw-alias` | [#17](https://github.com/Archway-AI/context-relay/pull/17) | Rank 7; review round 1 fixed a raw-mode override at `62447d6`; CI is green and latest-head Copilot re-review is pending. |
 | F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3/F6 gates cleared, but serialized behind F8 because both touch `lib/cli.js`. |
 | F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; F6/F10 gates cleared, but serialized after F8 because both touch `lib/cli.js`. |
 | F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; F6/F10 gates cleared, but serialized after F8 and F4 because their scopes overlap. |
@@ -74,7 +74,7 @@ The active-project inventory has one exact subsystem home for this repository. A
 | [#14](https://github.com/Archway-AI/context-relay/pull/14) | 1 | completed on latest head `1317966`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
 | [#15](https://github.com/Archway-AI/context-relay/pull/15) | 3 | completed on latest head `27cf2e8`; zero new actionable comments | none | green (Node 22.14.0, Node 24.x) | 3 | 0 | 0 | review-clean |
 | [#16](https://github.com/Archway-AI/context-relay/pull/16) | 1 | completed on latest head `42190ba`; zero actionable comments | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | review-clean |
-| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 0 | requested for `6407745`; timeline confirmed | none | pending (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#17](https://github.com/Archway-AI/context-relay/pull/17) | 1 | re-requested for `62447d6`; timeline confirmed | none | green (Node 22.14.0, Node 24.x) | 1 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
@@ -99,6 +99,7 @@ Review log (append-only):
 - 2026-08-30T17:06:35-0500 — PR #16 round 1 at `42190ba3506e9df64943c1d7925e840e2ae7196e`: Copilot reviewed both changed files and generated zero comments; 0 unresolved threads; no human reviews; both CI jobs green. Marked `review-clean` and left for human approve-and-merge.
 - 2026-08-30T18:05:08-0500 — PR #17 round 0 snapshot at `6407745fc4eeadecd892cdc84cd57addbb151416`: no review feedback; Node 22.14.0 and Node 24.x CI are running; Copilot review not yet requested.
 - 2026-08-30T18:05:49-0500 — PR #17 round 0 follow-up at `6407745fc4eeadecd892cdc84cd57addbb151416`: Copilot request confirmed by the GitHub timeline at 2026-08-30T23:05:49Z; CI and current-head review pending.
+- 2026-08-30T18:13:19-0500 — PR #17 round 1 at `62447d61277d817f874e668ac7420ea70f7c1e17`: accepted Copilot's one comment that a later `--mode compress` could escape the raw alias contract; fixed it in `62447d6`, added a failing-first no-artifact/no-event regression, reran 155/155 tests plus quickstart/eval/pack and focused Node 22.14.0/24 checks, replied, resolved the thread, pushed once, and re-requested Copilot. Both CI jobs are green; latest-head re-review pending.
 
 ## Session log (append-only)
 
