@@ -46,9 +46,9 @@ The active-project inventory has one exact subsystem home for this repository. A
 | F6 | [ARC-2317](https://linear.app/archway-ai/issue/ARC-2317) | merged | `audit/ARC-2317-f6-validated-config-state` | [#15](https://github.com/Archway-AI/context-relay/pull/15) | Rank 5; merged as `5f756a0` on 2026-08-30. F8/F7 collision gate cleared. |
 | F10 | [ARC-2318](https://linear.app/archway-ai/issue/ARC-2318) | merged | `audit/ARC-2318-f10-constant-space-line-count` | [#16](https://github.com/Archway-AI/context-relay/pull/16) | Rank 6; merged as `91135e3` on 2026-08-30. F4/F5 policy collision gate cleared. |
 | F8 | [ARC-2319](https://linear.app/archway-ai/issue/ARC-2319) | verifying | — | — | Rank 7; F6 collision gate cleared; re-verifying against `origin/main` at `91135e3`. |
-| F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3 gate cleared, but collision-gated until F6's `lib/cli.js` PR merges. |
-| F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; collision-gated until F6 and F10 merge, then serialize after F8. |
-| F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; collision-gated until F6/F10 merge and serialized after F8 and F4. |
+| F7 | [ARC-2320](https://linear.app/archway-ai/issue/ARC-2320) | queued | — | — | Rank 8; F3/F6 gates cleared, but serialized behind F8 because both touch `lib/cli.js`. |
+| F4 | [ARC-2321](https://linear.app/archway-ai/issue/ARC-2321) | queued | — | — | Rank 9; F6/F10 gates cleared, but serialized after F8 because both touch `lib/cli.js`. |
+| F5 | [ARC-2322](https://linear.app/archway-ai/issue/ARC-2322) | queued | — | — | Rank 10; F6/F10 gates cleared, but serialized after F8 and F4 because their scopes overlap. |
 
 ## Below-the-line tracker
 
@@ -134,3 +134,4 @@ Review log (append-only):
 - 2026-08-30T17:19:17-0500 — Closed the session with F2 merged, F6/F10 review-clean, no stale or formally blocked findings, and every queued finding tied to an explicit file-collision gate and next-session starting point.
 - 2026-08-30T17:59:50-0500 — Resumed after the human confirmed all open PRs merged. Verified PR #15 merged as `5f756a0` and PR #16 merged as `91135e3` on `origin/main`; marked F6/F10 merged and cleared their collision gates.
 - 2026-08-30T17:59:50-0500 — Set F8 / ARC-2319 to `verifying` against current `origin/main` at `91135e3`; F7 remains serialized behind F8 because both touch `lib/cli.js`.
+- 2026-08-30T18:00:45-0500 — Mirrored the merge reconciliation to Linear: moved ARC-2317 and ARC-2318 to Done with merge-SHA comments, and recorded F8 verification on ARC-2319.
