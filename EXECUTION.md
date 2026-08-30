@@ -68,15 +68,16 @@ The active-project inventory has one exact subsystem home for this repository. A
 
 | PR | Round | Copilot state | Human reviews | CI | Fixed | Declined | Escalated | Status |
 | --- | ---: | --- | --- | --- | ---: | ---: | ---: | --- |
-| [#11](https://github.com/Archway-AI/context-relay/pull/11) | 0 | no review on `bdcf437`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
-| [#12](https://github.com/Archway-AI/context-relay/pull/12) | 0 | no review on `8ee00ce`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
-| [#13](https://github.com/Archway-AI/context-relay/pull/13) | 0 | no review on `619d880`; not requested | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#11](https://github.com/Archway-AI/context-relay/pull/11) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `bdcf437` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#12](https://github.com/Archway-AI/context-relay/pull/12) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `8ee00ce` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
+| [#13](https://github.com/Archway-AI/context-relay/pull/13) | 0 | requested 2026-08-30T19:29:22Z; awaiting review of `619d880` | none | green (Node 22.14.0, Node 24.x) | 0 | 0 | 0 | awaiting-review |
 
 Review log (append-only):
 
 - 2026-08-30T14:28:32-0500 — PR #11 round 0 snapshot at `bdcf437fdd64b6f13ea1bcc17e32106fa1602e90`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
 - 2026-08-30T14:28:32-0500 — PR #12 round 0 snapshot at `8ee00ced69b627401f8665c0ff61689207d4cd28`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
 - 2026-08-30T14:28:32-0500 — PR #13 round 0 snapshot at `619d8808bbb502d42878c1392d9e12e35f6b0138`: CI green; 0 unresolved threads; 0 human reviews; 0 Copilot reviews; latest head not covered.
+- 2026-08-30T14:30:24-0500 — Requested Copilot review on PRs #11, #12, and #13. The first CLI requests returned success but were absent from both pending-reviewer APIs, so one documented REST re-request was made; each PR timeline confirms a Copilot review request at 2026-08-30T19:29:22Z. Polling window started from that timestamp.
 
 ## Session log (append-only)
 
