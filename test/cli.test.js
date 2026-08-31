@@ -182,6 +182,68 @@ describe("context-relay CLI", () => {
     assert.equal(result.stdout, "small\n");
   });
 
+  it("keeps the raw alias equivalent to run --mode raw", async () => {
+    const child = [
+      process.execPath,
+      "-e",
+      "process.stdout.write('raw stdout\\n'); process.stderr.write('raw stderr\\n'); process.exit(7)",
+    ];
+    const canonical = run(["run", "--mode", "raw", "--", ...child]);
+    const alias = run(["raw", "--", ...child]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 7);
+    assert.equal(alias.stdout, "raw stdout\n");
+    assert.equal(alias.stderr, "raw stderr\n");
+    assert.deepEqual(await readStoreEvents(), []);
+  });
+
+  it("rejects raw alias tokens before the command separator", () => {
+    const child = [process.execPath, "-e", "process.stdout.write('must not run')"];
+    const canonical = run(["run", "--mode", "raw", "junk", "--", ...child]);
+    const alias = run(["raw", "junk", "--", ...child]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 1);
+    assert.equal(alias.stdout, "");
+    assert.match(alias.stderr, /CR_ERROR: unknown run option: junk/);
+  });
+
+  it("keeps the raw alias missing-separator error canonical", () => {
+    const canonical = run(["run", "--mode", "raw"]);
+    const alias = run(["raw"]);
+
+    assert.deepEqual(
+      { status: alias.status, stdout: alias.stdout, stderr: alias.stderr },
+      { status: canonical.status, stdout: canonical.stdout, stderr: canonical.stderr },
+    );
+    assert.equal(alias.status, 1);
+    assert.match(alias.stderr, /CR_ERROR: missing command after --/);
+  });
+
+  it("keeps the raw alias in raw mode when a mode flag precedes the separator", async () => {
+    const rawOutput = Array.from({ length: 40 }, (_, index) => `raw line ${index + 1}`).join("\n") + "\n";
+    const alias = run([
+      "raw",
+      "--mode",
+      "compress",
+      "--",
+      process.execPath,
+      "-e",
+      `process.stdout.write(${JSON.stringify(rawOutput)})`,
+    ]);
+
+    assert.equal(alias.status, 0, alias.stderr);
+    assert.equal(alias.stdout, rawOutput);
+    assert.deepEqual(await readStoreEvents(), []);
+  });
+
   it("counts line boundaries in constant auxiliary space without changing policy thresholds", () => {
     for (const [text, expected] of [
       ["", 0],
